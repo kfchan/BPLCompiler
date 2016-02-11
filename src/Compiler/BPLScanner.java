@@ -3,6 +3,7 @@ package Compiler;
 import java.util.Scanner;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.lang.StringBuilder;
 
 public class BPLScanner {
 	private String fileName;
@@ -16,7 +17,7 @@ public class BPLScanner {
 		try {
 			this.scan = new Scanner(new File(fileName));
 		} catch (FileNotFoundException f) {
-			System.out.println("File not found. Exiting.");
+			System.err.println("File not found. Exiting.");
 			System.exit(-1);
 		}
 		this.currentLine = "";
@@ -40,11 +41,8 @@ public class BPLScanner {
 		if (currentLine == "") {
 			curToken = new Token("", Token.T_EOF, lineNumber);
 		}
-		// skip comments by finding /* */'s
 		int i = 0;
 		int j = 0;
-
-		// System.out.println("i : " + i + "; currLine length : " + currentLine.length());
 
 		while (i < currentLine.length() && Character.isWhitespace(currentLine.charAt(i))) {
 			i++;
@@ -52,11 +50,8 @@ public class BPLScanner {
 
 		if (i == currentLine.length()) {
 			if (scan.hasNextLine()) { // new line
-				// System.out.println("New line!");
-				// System.out.println("next line 3");
 				currentLine = scan.nextLine();
 				lineNumber++;
-				// System.out.println("lineNumber " + lineNumber);
 				getNextToken();
 			} else { // end of file
 				curToken = new Token("", Token.T_EOF, lineNumber);
@@ -64,7 +59,7 @@ public class BPLScanner {
 			}
 		} else {
 			char c = currentLine.charAt(i);
-			if(Character.isDigit(c)) {
+			if (Character.isDigit(c)) {
 				j = i+1;
 				while (j < currentLine.length() && Character.isDigit(currentLine.charAt(j))) {
 					j++;
@@ -74,9 +69,7 @@ public class BPLScanner {
 				currentLine = currentLine.substring(j);
 			} else if (Character.isLetter(c)) {
 				j = i+1;
-				// char jChar = currentLine.charAt(j);
-				while (j < currentLine.length() && (Character.isLetterOrDigit(currentLine.charAt(j)) || (currentLine.charAt(j) == '_'))) {
-					// jChar = currentLine.charAt(j);					
+				while (j < currentLine.length() && (Character.isLetterOrDigit(currentLine.charAt(j)) || (currentLine.charAt(j) == '_'))) {					
 					j++;
 				}
 				String tokenString = currentLine.substring(i,j);
@@ -105,23 +98,20 @@ public class BPLScanner {
 				}
 				currentLine = currentLine.substring(j);
 			} else if (c == '\"') {
-				// can I assume the sting will be on one line ??
+				// assuming strings can only be on one line
 				j = i + 1;
-				// char ch = currentLine.charAt(j);
 				while (currentLine.charAt(j) != '\"') {
 					if (j == currentLine.length() - 1) {
-						System.out.println("hey");
-						break;
+						System.err.println("Expected '\"'' missing. (Line " + lineNumber + ") Exiting.");
+						System.exit(-1);
 					}
 					j++;
-					// ch = currentLine.charAt(j);
 				}
 				j++;
 				String tokenString = currentLine.substring(i,j);
 				curToken = new Token(tokenString, Token.T_REALSTRING, lineNumber);
 				currentLine = currentLine.substring(j);
 			} else if (c == '/') { // should be a comment and we need to skip
-				// j = i + 1;
 				char ch = currentLine.charAt(j);
 				if ((i >= currentLine.length()) && (ch != '*')) {
 					curToken = new Token("/", Token.T_BACKSLASH, lineNumber);
@@ -140,12 +130,11 @@ public class BPLScanner {
 							getNextToken();
 						} else {
 							if (scan.hasNextLine()) {
-								// System.out.println("next line 1");
 								currentLine = scan.nextLine();
 								lineNumber++;
 								getNextToken();
 							} else {
-								System.out.println("Expected '*/' missing. Exiting.");
+								System.out.println("Expected '*/' missing. (Line " + lineNumber + ") Exiting.");
 								System.exit(-1);
 							}
 						}
@@ -155,14 +144,12 @@ public class BPLScanner {
 					// if we have reached the end of the current line, then move on to the next line
 					if (i + 1 >= currentLine.length()) {
 						if (scan.hasNextLine()) {
-							// System.out.println("next line 2");
 							currentLine = scan.nextLine();
 							lineNumber++;
 							i = -1;
 						} else {
-							System.out.println("Expected '*/' missing. Exiting.");
+							System.out.println("Expected '*/' missing. (Line " + lineNumber + ") Exiting.");
 							System.exit(-1);
-							// return;
 						}
 					}
 
@@ -170,7 +157,6 @@ public class BPLScanner {
 					i++;
 					ch = currentLine.charAt(i);
 				}
-
 			}else if (c == '-') {
 				curToken = new Token ("-", Token.T_MINUS, lineNumber);
 				currentLine = currentLine.substring(i+1);
@@ -239,9 +225,8 @@ public class BPLScanner {
 					curToken = new Token ("!=", Token.T_NEQ, lineNumber);
 					currentLine = currentLine.substring(i+2);
 				} else {
-					System.out.println("Expected '=' after '!'. Exiting.");
+					System.out.println("Expected '=' after '!'. (Line " + lineNumber + ") Exiting.");
 					System.exit(-1);
-					// currentLine = currentLine.substring(i+1);
 				}
 			}
 		}
@@ -252,21 +237,14 @@ public class BPLScanner {
 		String inputFileName;
 		BPLScanner myScanner;
 
-		System.out.println("poopy");
-
 		inputFileName = args[0];
-		System.out.println("Using File: " + inputFileName);
 		
 		myScanner = new BPLScanner(inputFileName);
 		myScanner.getNextToken();
-		System.out.println(myScanner.nextToken());
+		// System.out.println(myScanner.nextToken());
 		while (myScanner.nextToken().type != Token.T_EOF) {
-			// try {
-			myScanner.getNextToken();
 			System.out.println(myScanner.nextToken());
-			// } catch (ScannerException e) {
-			// 	System.out.println(e);
-			// } 
+			myScanner.getNextToken();
 		}
 		System.exit(0);
 	}
