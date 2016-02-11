@@ -121,22 +121,19 @@ public class BPLScanner {
 				} else { // found a star; this is a comment we need to skip
 					i++;
 				}
-				 
 				while (true) {
 					// if the current charater is '*' and the next charater is '/', then the comment is done.
 					if ((ch == '*') && (i < currentLine.length() - 1) && (currentLine.charAt(i+1) == '/')) {
 						if (i+2 < currentLine.length()) {
 							currentLine = currentLine.substring(i+2);
 							getNextToken();
+						} else if (scan.hasNextLine()) {
+							currentLine = scan.nextLine();
+							lineNumber++;
+							getNextToken();
 						} else {
-							if (scan.hasNextLine()) {
-								currentLine = scan.nextLine();
-								lineNumber++;
-								getNextToken();
-							} else {
-								System.out.println("Expected '*/' missing. (Line " + lineNumber + ") Exiting.");
-								System.exit(-1);
-							}
+							System.err.println("Expected '*/' missing. (Line " + lineNumber + ") Exiting.");
+							System.exit(-1);
 						}
 						return;
 					}
@@ -148,7 +145,7 @@ public class BPLScanner {
 							lineNumber++;
 							i = -1;
 						} else {
-							System.out.println("Expected '*/' missing. (Line " + lineNumber + ") Exiting.");
+							System.err.println("Expected '*/' missing. (Line " + lineNumber + ") Exiting.");
 							System.exit(-1);
 						}
 					}
@@ -225,7 +222,7 @@ public class BPLScanner {
 					curToken = new Token ("!=", Token.T_NEQ, lineNumber);
 					currentLine = currentLine.substring(i+2);
 				} else {
-					System.out.println("Expected '=' after '!'. (Line " + lineNumber + ") Exiting.");
+					System.err.println("Expected '=' after '!'. (Line " + lineNumber + ") Exiting.");
 					System.exit(-1);
 				}
 			}
@@ -241,12 +238,10 @@ public class BPLScanner {
 		
 		myScanner = new BPLScanner(inputFileName);
 		myScanner.getNextToken();
-		// System.out.println(myScanner.nextToken());
 		while (myScanner.nextToken().type != Token.T_EOF) {
 			System.out.println(myScanner.nextToken());
 			myScanner.getNextToken();
 		}
 		System.exit(0);
 	}
-
 }

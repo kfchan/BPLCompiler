@@ -4,17 +4,15 @@
 		if (n == 0)
 			return 1;
 		else
-			/* write("meow meow
-			meow"); */
 			return n*fact(n-1);
 	}
 
 	void main(void) {
 		int x;
-		x = 1;
+		x_ad = 1;
 		while (x <= 10) {
 			read(x>5);
-			read(x>=5);
+			read(xasd2321    >=5);
 			/* read(!=);
 			read(!); */
 			write(x);
