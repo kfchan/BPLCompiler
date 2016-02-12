@@ -12,12 +12,12 @@ public class BPLScanner {
 	private String currentLine;
 	private int lineNumber;
 	
-	public BPLScanner (String fileName) {
+	public BPLScanner (String fileName)  {
 		this.fileName = fileName;
 		try {
 			this.scan = new Scanner(new File(fileName));
 		} catch (FileNotFoundException f) {
-			System.err.println("File not found. Exiting.");
+			f.printStackTrace();
 			System.exit(-1);
 		}
 		this.currentLine = "";
@@ -37,13 +37,13 @@ public class BPLScanner {
 	/** 
 	* get next token
 	**/
-	public void getNextToken() {
+	public void getNextToken() throws BPLScannerException {
 		if (currentLine == "") {
 			curToken = new Token("", Token.T_EOF, lineNumber);
 		}
+
 		int i = 0;
 		int j = 0;
-
 		while (i < currentLine.length() && Character.isWhitespace(currentLine.charAt(i))) {
 			i++;
 		}
@@ -102,8 +102,7 @@ public class BPLScanner {
 				j = i + 1;
 				while (currentLine.charAt(j) != '\"') {
 					if (j == currentLine.length() - 1) {
-						System.err.println("Expected '\"'' missing. (Line " + lineNumber + ") Exiting.");
-						System.exit(-1);
+						throw new BPLScannerException("Expected '\"'' missing (Line " + lineNumber + ")");
 					}
 					j++;
 				}
@@ -112,19 +111,24 @@ public class BPLScanner {
 				curToken = new Token(tokenString, Token.T_REALSTRING, lineNumber);
 				currentLine = currentLine.substring(j);
 			} else if (c == '/') { // should be a comment and we need to skip
-				char ch = currentLine.charAt(j);
-				if ((i >= currentLine.length()) && (ch != '*')) {
+				char ch = currentLine.charAt(i);
+				// if there is no star after /, then it is just a / token
+				if (i+1 >= currentLine.length() || (i+1 < currentLine.length() && currentLine.charAt(i+1) != '*')) {
 					curToken = new Token("/", Token.T_BACKSLASH, lineNumber);
 					currentLine = currentLine.substring(i+1);
-					getNextToken();
 					return;
 				} else { // found a star; this is a comment we need to skip
-					i++;
+					i += 2;
+					if (i >= currentLine.length()) {
+						currentLine = findNextNonEmptyLine(currentLine);
+						i = 0;
+					}
+					ch = currentLine.charAt(i);
 				}
 				while (true) {
 					// if the current charater is '*' and the next charater is '/', then the comment is done.
 					if ((ch == '*') && (i < currentLine.length() - 1) && (currentLine.charAt(i+1) == '/')) {
-						if (i+2 < currentLine.length()) {
+						if (i+1 < currentLine.length()) {
 							currentLine = currentLine.substring(i+2);
 							getNextToken();
 						} else if (scan.hasNextLine()) {
@@ -132,8 +136,7 @@ public class BPLScanner {
 							lineNumber++;
 							getNextToken();
 						} else {
-							System.err.println("Expected '*/' missing. (Line " + lineNumber + ") Exiting.");
-							System.exit(-1);
+							throw new BPLScannerException("Expected '*/' missing (Line " + lineNumber + ")");
 						}
 						return;
 					}
@@ -141,17 +144,18 @@ public class BPLScanner {
 					// if we have reached the end of the current line, then move on to the next line
 					if (i + 1 >= currentLine.length()) {
 						if (scan.hasNextLine()) {
-							currentLine = scan.nextLine();
-							lineNumber++;
+							currentLine = findNextNonEmptyLine(currentLine);
 							i = -1;
 						} else {
-							System.err.println("Expected '*/' missing. (Line " + lineNumber + ") Exiting.");
-							System.exit(-1);
+							throw new BPLScannerException("Expected '*/' missing (Line " + lineNumber + ")");
 						}
 					}
 
 					// we are not at the end of the current line; keep going
 					i++;
+					if (i >= currentLine.length()) {
+						throw new BPLScannerException("Expected '*/' missing (Line " + lineNumber + ")");
+					}
 					ch = currentLine.charAt(i);
 				}
 			}else if (c == '-') {
@@ -222,17 +226,35 @@ public class BPLScanner {
 					curToken = new Token ("!=", Token.T_NEQ, lineNumber);
 					currentLine = currentLine.substring(i+2);
 				} else {
-					System.err.println("Expected '=' after '!'. (Line " + lineNumber + ") Exiting.");
-					System.exit(-1);
+					throw new BPLScannerException("Expected '=' after '!' (Line " + lineNumber + ")");
 				}
 			}
 		}
-		
 	}
 
-	public static void main(String[] args) {
+	/**
+	* finds the next non empty line and returns it
+	* used by getNextToken
+	*/
+	private String findNextNonEmptyLine(String currentLine) throws BPLScannerException {
+		while (scan.hasNextLine()) {
+			currentLine = scan.nextLine();
+			lineNumber++;
+			if (currentLine.length() != 0) {
+				return currentLine;
+			}
+		}
+		throw new BPLScannerException("Expected '*/' missing (Line " + lineNumber + ")");
+	}
+
+	public static void main(String[] args) throws BPLScannerException {
 		String inputFileName;
 		BPLScanner myScanner;
+
+		if (args.length == 0) {
+			System.out.println("hi");
+			throw new BPLScannerException("No file given");
+		}
 
 		inputFileName = args[0];
 		
