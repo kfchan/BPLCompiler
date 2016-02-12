@@ -252,7 +252,6 @@ public class BPLScanner {
 		BPLScanner myScanner;
 
 		if (args.length == 0) {
-			System.out.println("hi");
 			throw new BPLScannerException("No file given");
 		}
 
