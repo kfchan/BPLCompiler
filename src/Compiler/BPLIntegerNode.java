@@ -3,12 +3,12 @@ package Compiler;
 import java.io.*;
 import java.util.*;
 
-public class BPLNumberNode extends BPLNode {
+public class BPLIntegerNode extends BPLNode {
 	private int lineNumber;
 	private int num;
 	private BPLNode parent;
 
-	public BPLNumberNode(int num, int lineNumber) {
+	public BPLIntegerNode(int num, int lineNumber) {
 		super("INTEGER", lineNumber);
 		this.num = num;
 		this.lineNumber = lineNumber;
