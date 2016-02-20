@@ -11,7 +11,7 @@ public class BPLScanner {
 	private String currentLine;
 	private int lineNumber;
 	
-	public BPLScanner (String fileName)  {
+	public BPLScanner(String fileName)  {
 		this.fileName = fileName;
 		try {
 			this.scan = new Scanner(new File(fileName));
@@ -101,7 +101,7 @@ public class BPLScanner {
 				j = i + 1;
 				while (currentLine.charAt(j) != '\"') {
 					if (j == currentLine.length() - 1) {
-						throw new BPLScannerException("Expected '\"'' missing (Line " + lineNumber + ")");
+						throw new BPLScannerException("Expected '\"'' missing", lineNumber);
 					}
 					j++;
 				}
@@ -135,7 +135,7 @@ public class BPLScanner {
 							lineNumber++;
 							getNextToken();
 						} else {
-							throw new BPLScannerException("Expected '*/' missing (Line " + lineNumber + ")");
+							throw new BPLScannerException("Expected '*/' missing", lineNumber);
 						}
 						return;
 					}
@@ -146,14 +146,14 @@ public class BPLScanner {
 							currentLine = findNextNonEmptyLine(currentLine);
 							i = -1;
 						} else {
-							throw new BPLScannerException("Expected '*/' missing (Line " + lineNumber + ")");
+							throw new BPLScannerException("Expected '*/' missing", lineNumber);
 						}
 					}
 
 					// we are not at the end of the current line; keep going
 					i++;
 					if (i >= currentLine.length()) {
-						throw new BPLScannerException("Expected '*/' missing (Line " + lineNumber + ")");
+						throw new BPLScannerException("Expected '*/' missing", lineNumber);
 					}
 					ch = currentLine.charAt(i);
 				}
@@ -225,7 +225,7 @@ public class BPLScanner {
 					curToken = new Token ("!=", Token.T_NEQ, lineNumber);
 					currentLine = currentLine.substring(i+2);
 				} else {
-					throw new BPLScannerException("Expected '=' after '!' (Line " + lineNumber + ")");
+					throw new BPLScannerException("Expected '=' after '!'", lineNumber);
 				}
 			}
 		}
@@ -243,7 +243,7 @@ public class BPLScanner {
 				return currentLine;
 			}
 		}
-		throw new BPLScannerException("Expected '*/' missing (Line " + lineNumber + ")");
+		throw new BPLScannerException("Expected '*/' missing", lineNumber);
 	}
 
 	public static void main(String[] args) throws BPLScannerException {
@@ -258,7 +258,7 @@ public class BPLScanner {
 		
 		myScanner = new BPLScanner(inputFileName);
 		myScanner.getNextToken();
-		while (myScanner.nextToken().type != Token.T_EOF) {
+		while (myScanner.nextToken().getType() != Token.T_EOF) {
 			System.out.println(myScanner.nextToken());
 			myScanner.getNextToken();
 		}

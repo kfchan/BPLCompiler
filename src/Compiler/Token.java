@@ -7,7 +7,7 @@ public class Token {
 	public static final int T_WHILE = 103;
 	public static final int T_ID = 104;
 	public static final int T_NUM = 105;
-	public static final int T_MINUS = 106; // 
+	public static final int T_MINUS = 106; // -
 	public static final int T_SEMICOL = 107; // ;
 	public static final int T_RPAREN = 108; // (
 	public static final int T_LPAREN = 109; // )
@@ -37,9 +37,9 @@ public class Token {
 	public static final int T_WRITELN = 133;
 	public static final int T_REALSTRING = 134;
 
-	public final String tString;
-	public final int type;
-	public final int lineNumber;
+	private final String tString;
+	private final int type;
+	private final int lineNumber;
 
 	public Token(String token, int type, int lineNum) {
 		this.tString = token;
@@ -47,7 +47,19 @@ public class Token {
 		this.lineNumber = lineNum;
 	}
 
+	public String getValue() {
+		return this.tString;
+	}
+
+	public int getType() {
+		return this.type;
+	}
+
+	public int getLineNumber() {
+		return this.lineNumber;
+	}
+
 	public String toString() {
-		return "Token " + type + ", string '" + tString + "', line number " + lineNumber;
+		return "Token " + this.type + ", string '" + this.tString + "', line number " + this.lineNumber;
 	}
 }

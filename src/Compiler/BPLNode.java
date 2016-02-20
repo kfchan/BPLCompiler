@@ -28,6 +28,10 @@ public class BPLNode {
 		return this.children;
 	}
 
+	public BPLNode getChild(int i) {
+		return this.children.get(i);
+	}
+
 	public void addChild(BPLNode child) {
 		this.children.add(child);
 	}
@@ -38,9 +42,6 @@ public class BPLNode {
 
 	public String toString() {
 		String rtn = "Line " + this.getLineNumber() + ": " + type + "\n";
-		for (int i = 0; i < this.children.size(); i++) {
-			rtn += "\t" + this.children.get(i).toString() + "\n";
-		}
 		return rtn;
 	}
 

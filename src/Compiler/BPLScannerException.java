@@ -9,11 +9,7 @@ public class BPLScannerException extends Exception {
 		super(message); 
 	}
 
-	public BPLScannerException(String message, Throwable cause) { 
-		super(message, cause); 
-	}
-
-	public BPLScannerException(Throwable cause) { 
-		super(cause); 
+	public BPLScannerException(String message, int lineNumber) { 
+		super(message + " (Line " + lineNumber + ")."); 
 	}
 }
