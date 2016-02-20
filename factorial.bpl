@@ -14,7 +14,12 @@
 			read(x>5);
 			read(xasd2321    >=5);
 			/* */ read(!=); 
-			/* read(!);            */
+			/* read(!);            
+			
+
+
+
+
 			write(x);
 			write(fact(x));
 			writeln();
@@ -26,3 +31,7 @@
 	}
 
 
+*/
+
+
+}

@@ -1,11 +1,18 @@
 JAVAC = javac
 sources = $(wildcard src/Compiler/*.java)
-classes = $(notdir $(sources:.java=.class))
+classes = $(addprefix bin/Compiler/, $(notdir $(sources:.java=.class)))
+tests = $(wildcard src/test/*.java)
+test_classes = $(addprefix bin/test/, $(notdir $(tests:.java=.class)))
 
 all: $(classes)
 
-clean:
-	rm -f bin/Compiler/*.class
+compiletest: $(test_classes)
 
-%.class: src/Compiler/%.java
-	$(JAVAC) -cp src -d bin/ $<
+clean:
+	rm -f $(classes) $(test_classes)
+
+bin/Compiler/%.class: src/Compiler/%.java
+	$(JAVAC) -cp src/ -d bin/ $<
+
+bin/test/%.class: src/test/%.java
+	$(JAVAC) -cp src/:src/test:bin/:lib/junit-4.12.jar -d bin/test/ $<

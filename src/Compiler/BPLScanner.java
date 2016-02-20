@@ -3,7 +3,6 @@ package Compiler;
 import java.util.Scanner;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.lang.StringBuilder;
 
 public class BPLScanner {
 	private String fileName;
