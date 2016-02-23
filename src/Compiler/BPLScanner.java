@@ -167,16 +167,16 @@ public class BPLScanner {
 				curToken = new Token (";", Token.T_SEMICOL, lineNumber);
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '(') {
-				curToken = new Token ("(", Token.T_RPAREN, lineNumber);
+				curToken = new Token ("(", Token.T_LPAREN, lineNumber);
 				currentLine = currentLine.substring(i+1);
 			} else if (c == ')') {
-				curToken = new Token (")", Token.T_LPAREN, lineNumber);
+				curToken = new Token (")", Token.T_RPAREN, lineNumber);
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '{') {
-				curToken = new Token ("{", Token.T_RCURLY, lineNumber);
+				curToken = new Token ("{", Token.T_LCURLY, lineNumber);
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '}') {
-				curToken = new Token ("}", Token.T_LCURLY, lineNumber);
+				curToken = new Token ("}", Token.T_RCURLY, lineNumber);
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '[') {
 				curToken = new Token ("[", Token.T_LSQUARE, lineNumber);

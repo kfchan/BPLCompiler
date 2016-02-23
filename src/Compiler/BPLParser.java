@@ -31,15 +31,25 @@ public class BPLParser {
 	* @return the current token
 	*/
 	public Token getNextToken() throws BPLScannerException, BPLParserException {
+		// if there is a cached token, return that
+		// otherwise get the next token from the scanner and set that as the next token
 		this.firstToken = false;
-		this.scanner.getNextToken();
-		if (this.scanner.nextToken().getType() != Token.T_EOF) {
-			this.cachedToken = this.currentToken;
-		} else {
+		if (this.cachedToken != null) {
+			this.currentToken = this.cachedToken;
 			this.cachedToken = null;
+			return this.currentToken;
 		}
+		this.scanner.getNextToken();
 		this.currentToken = this.scanner.nextToken();
 		return this.currentToken;
+	}
+
+
+	public void cacheToken() throws BPLParserException {
+		if (this.cachedToken != null) {
+			throw new BPLParserException("Kat you already cached it already you sillybutt!");
+		}
+		this.cachedToken = this.currentToken;
 	}
 
 	/**
@@ -53,20 +63,140 @@ public class BPLParser {
 	* grammar rule for program node
 	*/
 	private BPLNode program() throws BPLScannerException, BPLParserException {
-		BPLNode statement = this.statement();
-		BPLNode program = new BPLNode("PROGRAM", statement.getLineNumber());
-		program.addChild(statement);
+		BPLNode compoundStmt = this.compoundStmt();
+		BPLNode program = new BPLNode("PROGRAM", compoundStmt.getLineNumber());
+		program.addChild(compoundStmt);
 		return program;
+	}
+
+	/**
+	* grammar rule for compound statement node
+	*/
+	private BPLNode compoundStmt() throws BPLScannerException, BPLParserException {
+		if (this.hasNextToken()) {
+			Token token = this.getNextToken();
+			if (token.getType() != Token.T_LCURLY) {
+				throw new BPLParserException("Unexpected token type", token.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
+
+		BPLNode statementList = this.statementList();
+
+		if (this.hasNextToken()) {
+			Token token = this.getNextToken();
+			if (token.getType() != Token.T_RCURLY) {
+				throw new BPLParserException("Unexpected token type", token.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
+
+		BPLNode compoundStmt = new BPLNode("COMPOUND_STMT", statementList.getLineNumber());
+		compoundStmt.addChild(statementList);
+
+		return compoundStmt;
+	}
+
+	/**
+	* grammar rule for statementList
+	*/
+	private BPLNode statementList() throws BPLScannerException, BPLParserException {
+		Token token = this.getNextToken();
+		if (token.getType() == Token.T_RCURLY) {
+			cacheToken();
+			return new BPLNode("EMPTY", this.currentToken.getLineNumber());
+		}
+		cacheToken();
+
+		BPLNode statement = this.statement();
+		BPLNode statementList = new BPLNode("STATEMENT_LIST", statement.getLineNumber());
+		statementList.addChild(statement);
+
+		BPLNode sList = this.statementList();
+		statementList.addChild(sList);
+
+		return statementList;
 	}
 
 	/**
 	* grammar rule for statement node
 	*/
 	private BPLNode statement() throws BPLScannerException, BPLParserException {
-		BPLNode expressionStmt = this.expressionStmt();
-		BPLNode statement = new BPLNode("STATEMENT", expressionStmt.getLineNumber());
-		statement.addChild(expressionStmt);
+		if (!hasNextToken()) {
+			throw new BPLParserException("More tokens expected.");
+		}
+
+		Token token = getNextToken();
+		cacheToken();
+		
+		BPLNode node; 
+		// TODO: this is what it eventually must look like:
+		/* if (token.getType() == Token.T_LCURLY) { // compound statement
+			node = this.compoundStmt();
+		} else if (token.getType() == Token.T_IF) { // if statement
+			node = this.ifStmt();
+		} else if (token.getType() == Token.T_WHILE) { // while statement
+			node = this.whileStmt();
+		} else if (token.getType() == Token.T_RETURN) { // return statement
+			node = this.returnStmt();
+		} else if (token.getType() == Token.T_WRITE || token.getType() == Token.T_WRITELN) { // write statement
+			node = this.writeStmt();
+		} else {
+			node = this.expressionStmt();
+		} */
+
+		if (token.getType() == Token.T_RETURN) { // return statement
+			node = this.returnStmt();
+		} else {
+			node = this.expressionStmt();
+		}
+
+		BPLNode statement = new BPLNode("STATEMENT", node.getLineNumber());
+		statement.addChild(node);
+
 		return statement;
+	}
+
+	/**
+	* grammar rule for the return statement
+	*/
+	private BPLNode returnStmt() throws BPLScannerException, BPLParserException {
+		if (hasNextToken()) { // check to make sure there is a return token
+			Token token = getNextToken();
+			if (token.getType() != Token.T_RETURN) {
+				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
+
+		if (!hasNextToken()) {
+			throw new BPLParserException("More tokens expected.");
+		}
+
+		Token token = getNextToken();
+		BPLNode returnStmt = new BPLNode("RETURN_STMT", token.getLineNumber());	
+		if (token.getType() != Token.T_SEMICOL) { // if no semicolin, then there must be an expression
+			cacheToken();
+			BPLNode expression = this.expression();
+			returnStmt.setLineNumber(expression.getLineNumber());				
+			returnStmt.addChild(expression);
+		} else {
+			return returnStmt;
+		}
+
+		if (hasNextToken()) { // check to make sure there is a return token
+			Token t = getNextToken();
+			if (t.getType() != Token.T_SEMICOL) {
+				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
+
+		return returnStmt;
 	}
 
 	/**
@@ -114,6 +244,9 @@ public class BPLParser {
 		return this.toStringHelp(this.head, 0);
 	}
 
+	/**
+	* helper for the toString function
+	*/ 
 	public String toStringHelp(BPLNode node, int depth) {
 		String rtn = "";
 		for (int i = 0; i < depth; i++) {
