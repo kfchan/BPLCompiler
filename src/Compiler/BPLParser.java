@@ -106,7 +106,7 @@ public class BPLParser {
 		Token token = this.getNextToken();
 		if (token.getType() == Token.T_RCURLY) {
 			cacheToken();
-			return new BPLNode("EMPTY", this.currentToken.getLineNumber());
+			return new BPLNode("EMPTY", token.getLineNumber());
 		}
 		cacheToken();
 
