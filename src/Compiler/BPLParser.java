@@ -371,7 +371,7 @@ public class BPLParser {
 	public String toStringHelp(BPLNode node, int depth) {
 		String rtn = "";
 		for (int i = 0; i < depth; i++) {
-			rtn += "\t";
+			rtn += "   ";
 		}
 		rtn += node.toString();
 		for (int i = 0; i < node.getChildrenSize(); i++) {
