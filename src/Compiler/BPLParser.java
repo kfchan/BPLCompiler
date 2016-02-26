@@ -289,6 +289,13 @@ public class BPLParser {
 	* grammar rule for expression_stmt node
 	*/
 	private BPLNode expressionStmt() throws BPLScannerException, BPLParserException {
+		if (hasNextToken()) {
+			Token token = getNextToken();
+			if (token.getType() == Token.T_SEMICOL) {
+				return new BPLNode("EXPRESSION_STMT", token.getLineNumber());
+			}
+		}
+		cacheToken();
 		BPLNode expression = this.expression();
 		BPLNode expressionStmt = new BPLNode("EXPRESSION_STMT", expression.getLineNumber());
 		expressionStmt.addChild(expression);
