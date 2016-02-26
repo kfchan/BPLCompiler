@@ -132,8 +132,7 @@ public class BPLParser {
 		cacheToken();
 		
 		BPLNode node; 
-		// TODO: this is what it eventually must look like:
-		/* if (token.getType() == Token.T_LCURLY) { // compound statement
+		if (token.getType() == Token.T_LCURLY) { // compound statement
 			node = this.compoundStmt();
 		} else if (token.getType() == Token.T_IF) { // if statement
 			node = this.ifStmt();
@@ -145,18 +144,112 @@ public class BPLParser {
 			node = this.writeStmt();
 		} else {
 			node = this.expressionStmt();
-		} */
-
-		if (token.getType() == Token.T_RETURN) { // return statement
-			node = this.returnStmt();
-		} else {
-			node = this.expressionStmt();
 		}
 
 		BPLNode statement = new BPLNode("STATEMENT", node.getLineNumber());
 		statement.addChild(node);
 
 		return statement;
+	}
+
+	/**
+	* grammar rule for the while statement
+	*/
+	private BPLNode ifStmt() throws BPLScannerException, BPLParserException {
+		Token ifTok;
+		if (hasNextToken()) { // check to make sure there is a return token
+			ifTok = getNextToken();
+			if (ifTok.getType() != Token.T_IF) {
+				throw new BPLParserException("Unexpected token.", ifTok.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}		
+
+		BPLNode node = new BPLNode("IF_STMT", ifTok.getLineNumber());
+
+		checkForLeftParen();
+
+		BPLNode expres = this.expression();
+		node.addChild(expres);
+
+		checkForRightParen();
+
+		BPLNode statement = this.statement();
+		node.addChild(statement);
+
+		if (hasNextToken()) {
+			Token token = getNextToken();
+			if (token.getType() != Token.T_ELSE) {
+				cacheToken();
+				return node;
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");			
+		}
+
+		statement = this.statement();
+		node.addChild(statement);
+
+		return node;
+	}	
+
+	/**
+	* grammar rule for the while statement
+	*/
+	private BPLNode whileStmt() throws BPLScannerException, BPLParserException {
+		Token whileTok;
+		if (hasNextToken()) { // check to make sure there is a return token
+			whileTok = getNextToken();
+			if (whileTok.getType() != Token.T_WHILE) {
+				throw new BPLParserException("Unexpected token.", whileTok.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
+
+		BPLNode node = new BPLNode("WHILE_STMT", whileTok.getLineNumber());
+
+		checkForLeftParen();
+
+		BPLNode expres = this.expression();
+		node.addChild(expres);
+
+		checkForRightParen();
+
+		BPLNode statement = this.statement();
+		node.addChild(statement);
+
+		return node;
+	}
+
+	/**
+	* grammar rule for the write statements
+	*/
+	private BPLNode writeStmt() throws BPLScannerException, BPLParserException {
+		Token writeTok;
+		if (hasNextToken()) { // check to make sure there is a return token
+			writeTok = getNextToken();
+			if (writeTok.getType() != Token.T_WRITE && writeTok.getType() != Token.T_WRITELN) {
+				throw new BPLParserException("Unexpected token.", writeTok.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
+
+		BPLNode node = new BPLNode("WRITE_STMT", writeTok.getLineNumber());
+
+		checkForLeftParen();
+
+		if (writeTok.getType() == Token.T_WRITE) {
+			BPLNode expres = this.expression();
+			node.addChild(expres);
+		}
+
+		checkForRightParen();
+		checkForSemicolin();
+
+		return node;
 	}
 
 	/**
@@ -187,14 +280,7 @@ public class BPLParser {
 			return returnStmt;
 		}
 
-		if (hasNextToken()) { // check to make sure there is a return token
-			Token t = getNextToken();
-			if (t.getType() != Token.T_SEMICOL) {
-				throw new BPLParserException("Unexpected token.", token.getLineNumber());
-			}
-		} else {
-			throw new BPLParserException("More tokens expected.");
-		}
+		checkForSemicolin();
 
 		return returnStmt;
 	}
@@ -207,14 +293,7 @@ public class BPLParser {
 		BPLNode expressionStmt = new BPLNode("EXPRESSION_STMT", expression.getLineNumber());
 		expressionStmt.addChild(expression);
 
-		if (this.hasNextToken()) {
-			Token token = this.getNextToken();
-			if (token.getType() != Token.T_SEMICOL) {
-				throw new BPLParserException("Unexpected token type", token.getLineNumber());
-			}
-		} else {
-			throw new BPLParserException("More tokens expected.");
-		}
+		checkForSemicolin();
 
 		return expressionStmt;
 	}
@@ -235,6 +314,48 @@ public class BPLParser {
 		BPLVarNode node = new BPLVarNode(token.getValue(), token.getLineNumber());
 
 		return node;
+	}
+
+	/**
+	* checks for and consumes a semicolin
+	*/
+	private void checkForSemicolin() throws BPLParserException, BPLScannerException {
+		if (hasNextToken()) { // check to make sure there is a return token
+			Token token = getNextToken();
+			if (token.getType() != Token.T_SEMICOL) {
+				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
+	}
+
+	/**
+	* checks for and consumes a right parenthesis
+	*/
+	private void checkForRightParen() throws BPLParserException, BPLScannerException {
+		if (hasNextToken()) { // check to make sure there is a ) token
+			Token token = getNextToken();
+			if (token.getType() != Token.T_RPAREN) {
+				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
+	}
+
+	/**
+	* checks for and consumes a left parenthesis
+	*/
+	private void checkForLeftParen() throws BPLParserException, BPLScannerException {
+		if (hasNextToken()) { // check to make sure there is a ) token
+			Token token = getNextToken();
+			if (token.getType() != Token.T_LPAREN) {
+				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected.");
+		}
 	}
 
 	/**
