@@ -79,9 +79,10 @@ public class BPLParser {
 				throw new BPLParserException("Unexpected token type", token.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 
+		BPLNode localDs  = this.localDecs();
 		BPLNode statementList = this.statementList();
 
 		if (this.hasNextToken()) {
@@ -90,32 +91,168 @@ public class BPLParser {
 				throw new BPLParserException("Unexpected token type", token.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 
 		BPLNode compoundStmt = new BPLNode("COMPOUND_STMT", statementList.getLineNumber());
+		compoundStmt.addChild(localDs);
 		compoundStmt.addChild(statementList);
 
 		return compoundStmt;
 	}
 
 	/**
+	* grammar for local declarations
+	**/
+	private BPLNode localDecs() throws BPLScannerException, BPLParserException {
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected");
+		}
+		Token token = this.getNextToken();
+		if ((token.getType() != Token.T_INT) && (token.getType() != Token.T_VOID) && (token.getType() != Token.T_STRING)) {
+			cacheToken();
+			return new BPLNode("<empty>", token.getLineNumber());
+		}
+		cacheToken();
+
+		BPLNode varD = this.varDec();
+		BPLNode localD = new BPLNode("LOCAL_DECS", varD.getLineNumber());
+		BPLNode localDs = this.localDecs();
+		
+		// add children
+		localD.addChild(localDs);
+		localD.addChild(varD);
+		
+
+		return localD;
+	} 
+
+	/**
+	* grammar rule for variable declaration
+	*/
+	private BPLNode varDec() throws BPLScannerException, BPLParserException {
+		// get type specifier
+		BPLNode type = this.typeSpecifier();
+		BPLNode dec = new BPLNode("VAR_DEC", type.getLineNumber());
+
+		if (!this.hasNextToken()) {
+ 			throw new BPLParserException("More tokens expected", type.getLineNumber());
+		}
+
+		Token token = this.getNextToken();
+		if (token.getType() == Token.T_STAR) { // if next token is star, then there must be an id that follows
+			BPLNode star = new BPLNode("*", token.getLineNumber());
+			dec.addChild(star);
+
+			if (this.hasNextToken()) {
+				token = this.getNextToken();
+				if (token.getType() != Token.T_ID) {
+					throw new BPLParserException("ID missing after '*'", token.getLineNumber());
+				}
+				BPLNode id = new BPLVarNode(token.getValue(), token.getLineNumber());
+				dec.addChild(id);
+			} else {
+				throw new BPLParserException("More tokens expected", token.getLineNumber());
+			}
+		} else if (token.getType() == Token.T_ID) { // if id token is next, then also check for [] tokens
+			BPLNode id = new BPLVarNode(token.getValue(), token.getLineNumber());
+			dec.addChild(id);
+
+			dec = varDecBracketHelper(dec);
+		} else {
+			throw new BPLParserException("Unexpected token type", token.getLineNumber());
+		}
+
+		// check for semicolins
+		checkForSemicolin();
+
+		return dec;
+	}
+
+	/**
+	* checks to see if there is a left bracket
+	* if there isn't, return
+	* if there is, check for int and right bracket
+	*/
+	private BPLNode varDecBracketHelper(BPLNode dec) throws BPLScannerException, BPLParserException {
+		// check for the left bracket
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected", dec.getLineNumber());
+		}
+		Token token = this.getNextToken();
+		if (token.getType() != Token.T_LSQUARE) { // if no left bracket, then cache Token and return
+			cacheToken();
+			return dec;
+		}
+		BPLNode leftBracket = new BPLNode("LSQUARE_BR", token.getLineNumber());
+		dec.addChild(leftBracket);
+
+		// check for integer between the brackets
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected", dec.getLineNumber());
+		}
+		token = this.getNextToken();
+		if (token.getType() != Token.T_NUM) {
+			throw new BPLParserException("Integer expected after '['", dec.getLineNumber());
+		}
+		int val = Integer.parseInt(token.getValue());
+		BPLNode integer = new BPLIntegerNode(val, token.getLineNumber());
+		dec.addChild(integer);
+
+		// check for the right bracket
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected", dec.getLineNumber());
+		}
+		token = this.getNextToken();
+		if (token.getType() != Token.T_RSQUARE) {
+			throw new BPLParserException("Missing token ']'", dec.getLineNumber());
+		}
+		BPLNode rightBracket = new BPLNode("RSQUARE_BR", token.getLineNumber());
+		dec.addChild(rightBracket);
+
+		return dec;
+	}
+
+	/**
+	* grammar rule for the type specifier node
+	*/
+	private BPLNode typeSpecifier() throws BPLScannerException, BPLParserException {
+		if (this.hasNextToken()) {
+			Token token = this.getNextToken();
+			if (token.getType() == Token.T_INT) {
+				return new BPLNode("int", token.getLineNumber());
+			} else if (token.getType() == Token.T_VOID) {
+				return new BPLNode("void", token.getLineNumber());
+			} else if (token.getType() == Token.T_STRING) {
+				return new BPLNode("string", token.getLineNumber());
+			} else {
+				throw new BPLParserException("Unexpected token type", token.getLineNumber());
+			}
+		}
+		throw new BPLParserException("More tokens expected");		
+	}
+
+	/**
 	* grammar rule for statementList
 	*/
 	private BPLNode statementList() throws BPLScannerException, BPLParserException {
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected");
+		}
 		Token token = this.getNextToken();
 		if (token.getType() == Token.T_RCURLY) {
 			cacheToken();
-			return new BPLNode("EMPTY", token.getLineNumber());
+			return new BPLNode("<empty>", token.getLineNumber());
 		}
 		cacheToken();
 
 		BPLNode statement = this.statement();
 		BPLNode statementList = new BPLNode("STATEMENT_LIST", statement.getLineNumber());
-		statementList.addChild(statement);
-
 		BPLNode sList = this.statementList();
+
+		// add children
 		statementList.addChild(sList);
+		statementList.addChild(statement);
 
 		return statementList;
 	}
@@ -125,7 +262,7 @@ public class BPLParser {
 	*/
 	private BPLNode statement() throws BPLScannerException, BPLParserException {
 		if (!hasNextToken()) {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 
 		Token token = getNextToken();
@@ -160,10 +297,10 @@ public class BPLParser {
 		if (hasNextToken()) { // check to make sure there is a return token
 			ifTok = getNextToken();
 			if (ifTok.getType() != Token.T_IF) {
-				throw new BPLParserException("Unexpected token.", ifTok.getLineNumber());
+				throw new BPLParserException("Unexpected token", ifTok.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}		
 
 		BPLNode node = new BPLNode("IF_STMT", ifTok.getLineNumber());
@@ -185,7 +322,7 @@ public class BPLParser {
 				return node;
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");			
+			throw new BPLParserException("More tokens expected");			
 		}
 
 		statement = this.statement();
@@ -202,10 +339,10 @@ public class BPLParser {
 		if (hasNextToken()) { // check to make sure there is a return token
 			whileTok = getNextToken();
 			if (whileTok.getType() != Token.T_WHILE) {
-				throw new BPLParserException("Unexpected token.", whileTok.getLineNumber());
+				throw new BPLParserException("Unexpected token", whileTok.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 
 		BPLNode node = new BPLNode("WHILE_STMT", whileTok.getLineNumber());
@@ -231,10 +368,10 @@ public class BPLParser {
 		if (hasNextToken()) { // check to make sure there is a return token
 			writeTok = getNextToken();
 			if (writeTok.getType() != Token.T_WRITE && writeTok.getType() != Token.T_WRITELN) {
-				throw new BPLParserException("Unexpected token.", writeTok.getLineNumber());
+				throw new BPLParserException("Unexpected token", writeTok.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 
 		BPLNode node = new BPLNode("WRITE_STMT", writeTok.getLineNumber());
@@ -259,14 +396,14 @@ public class BPLParser {
 		if (hasNextToken()) { // check to make sure there is a return token
 			Token token = getNextToken();
 			if (token.getType() != Token.T_RETURN) {
-				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+				throw new BPLParserException("Unexpected token", token.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 
 		if (!hasNextToken()) {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 
 		Token token = getNextToken();
@@ -310,7 +447,7 @@ public class BPLParser {
 	*/
 	private BPLNode expression() throws BPLScannerException, BPLParserException {
 		if (!this.hasNextToken()) {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("Expression expected");
 		}
 
 		Token token = this.getNextToken();
@@ -330,10 +467,10 @@ public class BPLParser {
 		if (hasNextToken()) { // check to make sure there is a return token
 			Token token = getNextToken();
 			if (token.getType() != Token.T_SEMICOL) {
-				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+				throw new BPLParserException("Unexpected token", token.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 	}
 
@@ -344,10 +481,10 @@ public class BPLParser {
 		if (hasNextToken()) { // check to make sure there is a ) token
 			Token token = getNextToken();
 			if (token.getType() != Token.T_RPAREN) {
-				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+				throw new BPLParserException("Unexpected token", token.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 	}
 
@@ -358,10 +495,10 @@ public class BPLParser {
 		if (hasNextToken()) { // check to make sure there is a ) token
 			Token token = getNextToken();
 			if (token.getType() != Token.T_LPAREN) {
-				throw new BPLParserException("Unexpected token.", token.getLineNumber());
+				throw new BPLParserException("Unexpected token", token.getLineNumber());
 			}
 		} else {
-			throw new BPLParserException("More tokens expected.");
+			throw new BPLParserException("More tokens expected");
 		}
 	}
 

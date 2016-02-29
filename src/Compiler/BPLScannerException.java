@@ -6,7 +6,7 @@ public class BPLScannerException extends Exception {
 	}
 
 	public BPLScannerException(String message) { 
-		super(message); 
+		super(message + "."); 
 	}
 
 	public BPLScannerException(String message, int lineNumber) { 

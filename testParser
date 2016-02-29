@@ -1,5 +1,13 @@
-{ if (x) {
-; 
+{ 
+int x;
+int *y;
+string poopy;
+
+x;
+
+if (x) {
+write();
+return x; 
 }
 
 
