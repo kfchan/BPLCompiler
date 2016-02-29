@@ -44,7 +44,9 @@ public class BPLParser {
 		return this.currentToken;
 	}
 
-
+	/**
+	* caches the token so that it can be gotten again
+	*/ 
 	public void cacheToken() throws BPLParserException {
 		if (this.cachedToken != null) {
 			throw new BPLParserException("Kat you already cached it already you sillybutt!");
