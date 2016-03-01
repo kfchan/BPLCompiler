@@ -1,15 +1,18 @@
 package Compiler;
 
+import java.util.*;
+
 public class BPLParser {
 	private final BPLScanner scanner;
 
 	private Token currentToken;
-	private Token cachedToken;
 	private BPLNode head;
 	private boolean firstToken;
+	private LinkedList<Token> cachedTokens;
 
 	public BPLParser(String fileName) throws BPLScannerException, BPLParserException {
 		this.scanner = new BPLScanner(fileName);
+		this.cachedTokens = new LinkedList<Token>();
 		this.firstToken = true;
 		this.head = this.program();
 	}
@@ -34,9 +37,8 @@ public class BPLParser {
 		// if there is a cached token, return that
 		// otherwise get the next token from the scanner and set that as the next token
 		this.firstToken = false;
-		if (this.cachedToken != null) {
-			this.currentToken = this.cachedToken;
-			this.cachedToken = null;
+		if (!this.cachedTokens.isEmpty()) {
+			this.currentToken = this.cachedTokens.poll();
 			return this.currentToken;
 		}
 		this.scanner.getNextToken();
@@ -48,10 +50,7 @@ public class BPLParser {
 	* caches the token so that it can be gotten again
 	*/ 
 	public void cacheToken() throws BPLParserException {
-		if (this.cachedToken != null) {
-			throw new BPLParserException("Kat you already cached it already you sillybutt!");
-		}
-		this.cachedToken = this.currentToken;
+		cachedTokens.addLast(this.currentToken);
 	}
 
 	/**
