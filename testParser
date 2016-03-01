@@ -6,7 +6,7 @@ string poopy;
 x;
 
 if (x) {
-write();
+write(poopy);
 return x; 
 }
 

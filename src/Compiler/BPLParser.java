@@ -65,20 +65,28 @@ public class BPLParser {
 	* grammar rule for program node
 	*/
 	private BPLNode program() throws BPLScannerException, BPLParserException {
-		BPLNode compoundStmt = this.compoundStmt();
-		BPLNode program = new BPLNode("PROGRAM", compoundStmt.getLineNumber());
-		program.addChild(compoundStmt);
+		BPLNode declaration = this.declaration();
+		BPLNode program = new BPLNode("PROGRAM", declaration.getLineNumber());
+		program.addChild(declaration);
 		return program;
+	}
+
+	private BPLNode declaration() throws BPLScannerException, BPLParserException {
+		BPLNode compoundStmt = this.compoundStmt();
+		BPLNode declaration = new BPLNode("DECLARATION", compoundStmt.getLineNumber());
+		declaration.addChild(compoundStmt);
+		return declaration;		
 	}
 
 	/**
 	* grammar rule for compound statement node
 	*/
 	private BPLNode compoundStmt() throws BPLScannerException, BPLParserException {
+		Token lcurly;
 		if (this.hasNextToken()) {
-			Token token = this.getNextToken();
-			if (token.getType() != Token.T_LCURLY) {
-				throw new BPLParserException("Unexpected token type", token.getLineNumber());
+			lcurly = this.getNextToken();
+			if (lcurly.getType() != Token.T_LCURLY) {
+				throw new BPLParserException("Unexpected token type", lcurly.getLineNumber());
 			}
 		} else {
 			throw new BPLParserException("More tokens expected");
@@ -96,7 +104,7 @@ public class BPLParser {
 			throw new BPLParserException("More tokens expected");
 		}
 
-		BPLNode compoundStmt = new BPLNode("COMPOUND_STMT", statementList.getLineNumber());
+		BPLNode compoundStmt = new BPLNode("COMPOUND_STMT", lcurly.getLineNumber());
 		compoundStmt.addChild(localDs);
 		compoundStmt.addChild(statementList);
 
