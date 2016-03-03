@@ -569,7 +569,9 @@ public class BPLParser {
 		}
 
 		statement = this.statement();
-		node.addChild(statement);
+		BPLNode el = new BPLNode("ELSE_STMT", statement.getLineNumber());
+		el.addChild(statement);
+		node.addChild(el);
 
 		return node;
 	}	
@@ -689,18 +691,48 @@ public class BPLParser {
 	* grammar rule for expression node
 	*/
 	private BPLNode expression() throws BPLScannerException, BPLParserException {
+		BPLNode var = this.var();
+		BPLNode expression = new BPLNode("EXPRESSION", var.getLineNumber());
+		expression.addChild(var);
+		return expression;
+	}
+
+	/**
+	* grammar rule for variable node
+	*/
+	private BPLNode var() throws BPLScannerException, BPLParserException {
 		if (!this.hasNextToken()) {
 			throw new BPLParserException("Expression expected");
 		}
 
 		Token token = this.getNextToken();
-		if (token.getType() != Token.T_ID) {
+
+		if ((token.getType() != Token.T_ID) && (token.getType() != Token.T_STAR)) {
 			throw new BPLParserException("Unexpected token type", token.getLineNumber());
 		}
+		BPLNode var = new BPLNode("VAR", token.getLineNumber());
+		if (token.getType() == Token.T_ID) {
+			BPLVarNode node = new BPLVarNode(token.getValue(), token.getLineNumber());
+			var.addChild(node);
+			return var;
+			// TODO: <id>[EXPRESSION]
+		}
+
+		BPLNode star = new BPLNode("*", token.getLineNumber());
+		var.addChild(star);
+		
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("Expression expected");
+		}
+
+		token = this.getNextToken();
+		if (token.getType() != Token.T_ID) {
+			throw new BPLParserException("Unexpected token type", token.getLineNumber());
+		}	
 
 		BPLVarNode node = new BPLVarNode(token.getValue(), token.getLineNumber());
-
-		return node;
+		var.addChild(node);
+		return var;
 	}
 
 	/**
@@ -710,6 +742,7 @@ public class BPLParser {
 		if (hasNextToken()) { // check to make sure there is a return token
 			Token token = getNextToken();
 			if (token.getType() != Token.T_SEMICOL) {
+				System.out.println(token);
 				throw new BPLParserException("Unexpected token", token.getLineNumber());
 			}
 		} else {

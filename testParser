@@ -5,9 +5,12 @@ void potato(int kat, string potato, int k[]) {
 	int x;
 	int y;
 	int kat[5];
+
+		*x;
+
 	if (x) {
 		return x;
-	}
+	} 
 }
 
 string aaron;
