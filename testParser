@@ -1,26 +1,12 @@
-{ 
-int x;
-int *y;
-string poopy;
 
-x;
+int katherine;
 
-if (x) {
-write(poopy);
-return x; 
-}
-
-
-
-else {
-return y;
-}
-
-
-
-
-
-
-
-
+void potato() {
+	int x;
+	int y;
+	if (x) {
+		return x;
 	}
+}
+
+string aaron;

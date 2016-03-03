@@ -50,7 +50,14 @@ public class BPLParser {
 	* caches the token so that it can be gotten again
 	*/ 
 	public void cacheToken() throws BPLParserException {
-		cachedTokens.addLast(this.currentToken);
+		this.cacheThisToken(this.currentToken);
+	}
+
+	/**
+	* caches specified token (for funDec/varDec)
+	*/
+	public void cacheThisToken(Token token) {
+		cachedTokens.addLast(token);
 	}
 
 	/**
@@ -64,18 +71,125 @@ public class BPLParser {
 	* grammar rule for program node
 	*/
 	private BPLNode program() throws BPLScannerException, BPLParserException {
-		BPLNode declaration = this.declaration();
-		BPLNode program = new BPLNode("PROGRAM", declaration.getLineNumber());
-		program.addChild(declaration);
+		BPLNode declarationList = this.declarationList();
+		BPLNode program = new BPLNode("PROGRAM", declarationList.getLineNumber());
+		program.addChild(declarationList);
 		return program;
 	}
 
-	private BPLNode declaration() throws BPLScannerException, BPLParserException {
-		BPLNode compoundStmt = this.compoundStmt();
-		BPLNode declaration = new BPLNode("DECLARATION", compoundStmt.getLineNumber());
-		declaration.addChild(compoundStmt);
-		return declaration;		
+	/**
+	* grammar rule for declaration list node
+	*/	
+	private BPLNode declarationList() throws BPLScannerException, BPLParserException {
+		BPLNode declaration = this.declaration();
+		BPLNode declarationList = new BPLNode("DECLARATION_LIST", declaration.getLineNumber());	
+
+		if (hasNextToken()) {
+			Token token = this.getNextToken();
+			if (token.getType() == Token.T_EOF) {
+				declarationList.addChild(declaration);
+				return declarationList;
+			}
+			cacheToken();
+		}
+
+		BPLNode declarationListChild = this.declarationList();
+		declarationList.addChild(declarationListChild);
+		declarationList.addChild(declaration);
+		return declarationList;
 	}
+
+	/**
+	* grammar rule for declaration node
+	*/
+	private BPLNode declaration() throws BPLScannerException, BPLParserException {
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected");
+		}
+
+		Token token1 = this.getNextToken(); // should be a type specifier
+		if ((token1.getType() != Token.T_INT) && (token1.getType() != Token.T_VOID) && (token1.getType() != Token.T_STRING)) {
+			throw new BPLParserException("Unexpected token type", token1.getLineNumber());
+		}
+
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected");
+		}
+
+		Token token2 = this.getNextToken();
+		if (token2.getType() == Token.T_STAR) {
+			// var_dec
+			cacheThisToken(token1);
+			cacheThisToken(token2);
+			BPLNode varDec = this.varDec();
+			BPLNode dec = new BPLNode("DECLARATION", token1.getLineNumber());
+			dec.addChild(varDec);
+			return dec;
+		} else if (token2.getType() != Token.T_ID) {
+			throw new BPLParserException("Unexpected token type", token2.getLineNumber());
+		}
+
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected");
+		}
+
+		BPLNode child;
+		Token token3 = this.getNextToken();
+		if ((token3.getType() == Token.T_SEMICOL) || (token3.getType() == Token.T_LSQUARE)) {
+			// var_dec
+			cacheThisToken(token1);
+			cacheThisToken(token2);
+			cacheThisToken(token3);	
+			child = this.varDec();		
+		} else if (token3.getType() == Token.T_LPAREN) {
+			// fun_dec
+			cacheThisToken(token1);
+			cacheThisToken(token2);
+			cacheThisToken(token3);
+			child = this.funDec();
+		} else {
+			throw new BPLParserException("Unexpected token type", token3.getLineNumber());
+		}
+
+		BPLNode dec = new BPLNode("DECLARATION", token1.getLineNumber());
+		dec.addChild(child);
+		return dec;
+	}
+
+	/**
+	* grammar rule for compound statement node
+	*/
+	private BPLNode funDec() throws BPLScannerException, BPLParserException {
+		BPLNode type = this.typeSpecifier();
+
+		Token token;
+		if (hasNextToken()) {
+			token = getNextToken();
+			if (token.getType() != Token.T_ID) {
+				throw new BPLParserException("Unexpected token type", token.getLineNumber());
+			}
+		} else {
+			throw new BPLParserException("More tokens expected");
+		}		
+
+		BPLNode id = new BPLVarNode(token.getValue(), token.getLineNumber());
+
+		checkForLeftParen();
+
+		// TODO: PARAMS
+
+		checkForRightParen();
+
+		BPLNode compoundStmt = this.compoundStmt();
+
+		BPLNode funDec = new BPLNode("FUN_DEC", type.getLineNumber());
+		funDec.addChild(type);
+		funDec.addChild(id);
+		// funDec.addChild(params);
+		funDec.addChild(compoundStmt);
+		return funDec;
+	}
+
 
 	/**
 	* grammar rule for compound statement node
