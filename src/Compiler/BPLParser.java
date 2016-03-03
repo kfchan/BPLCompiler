@@ -176,7 +176,7 @@ public class BPLParser {
 
 		checkForLeftParen();
 
-		// TODO: PARAMS
+		BPLNode params = this.params();
 
 		checkForRightParen();
 
@@ -185,11 +185,130 @@ public class BPLParser {
 		BPLNode funDec = new BPLNode("FUN_DEC", type.getLineNumber());
 		funDec.addChild(type);
 		funDec.addChild(id);
-		// funDec.addChild(params);
+		funDec.addChild(params);
 		funDec.addChild(compoundStmt);
 		return funDec;
 	}
 
+	/**
+	* grammar rule for params node
+	*/
+	private BPLNode params() throws BPLScannerException, BPLParserException {
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected");
+		}
+
+		Token token = getNextToken();
+		if (token.getType() == Token.T_VOID) {
+			BPLNode v = new BPLNode("void", token.getLineNumber());
+			BPLNode params = new BPLNode("PARAMS", v.getLineNumber());
+			params.addChild(v);
+			return params;
+		} else if ((token.getType() != Token.T_INT) && (token.getType() != Token.T_VOID) && (token.getType() != Token.T_STRING)) {
+			throw new BPLParserException("Unexpected token type", token.getLineNumber());
+		}
+		cacheToken();
+		BPLNode plist = this.paramList();
+		BPLNode params = new BPLNode("PARAMS", plist.getLineNumber());
+		params.addChild(plist);
+		return params;
+	}
+
+	/**
+	* grammar rule for param list node
+	*/
+	private BPLNode paramList() throws BPLScannerException, BPLParserException {
+		BPLNode param = this.param();
+		BPLNode paramList = new BPLNode("PARAM_LIST", param.getLineNumber());
+
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected");
+		}
+
+		Token token = this.getNextToken();
+		if (token.getType() == Token.T_RPAREN) {
+			cacheToken();
+			paramList.addChild(param);
+			return paramList;
+		} else if (token.getType() != Token.T_COMMA) { // just consume comma if there
+			throw new BPLParserException("Unexpected token type", token.getLineNumber());
+		}
+
+		BPLNode childParamList = this.paramList();
+		param.addChild(childParamList);
+		param.addChild(paramList);
+
+		return param;
+	}
+
+	/**
+	* grammar rule for param node
+	*/	
+	private BPLNode param() throws BPLScannerException, BPLParserException {
+		BPLNode type = this.typeSpecifier();
+		BPLNode param = new BPLNode("PARAM", type.getLineNumber());
+		param.addChild(type);
+
+		if (!this.hasNextToken()) {
+ 			throw new BPLParserException("More tokens expected", type.getLineNumber());
+		}
+
+		Token token = this.getNextToken();
+		if (token.getType() == Token.T_STAR) { // if next token is star, then there must be an id that follows
+			BPLNode star = new BPLNode("*", token.getLineNumber());
+			param.addChild(star);
+
+			if (this.hasNextToken()) {
+				token = this.getNextToken();
+				if (token.getType() != Token.T_ID) {
+					throw new BPLParserException("ID missing after '*'", token.getLineNumber());
+				}
+				BPLNode id = new BPLVarNode(token.getValue(), token.getLineNumber());
+				param.addChild(id);
+			} else {
+				throw new BPLParserException("More tokens expected", token.getLineNumber());
+			}
+		} else if (token.getType() == Token.T_ID) { // if id token is next, then also check for [] tokens
+			BPLNode id = new BPLVarNode(token.getValue(), token.getLineNumber());
+			param.addChild(id);
+
+			param = paramBracketHelper(param);
+		} else {
+			throw new BPLParserException("Unexpected token type", token.getLineNumber());
+		}
+
+		return param;		
+	}
+
+	/**
+	* checks to see if there is a left bracket, then a right bracket
+	*/
+	private BPLNode paramBracketHelper(BPLNode param) throws BPLScannerException, BPLParserException {
+		// check for the left bracket
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected", param.getLineNumber());
+		}
+		Token token = this.getNextToken();
+		if (token.getType() != Token.T_LSQUARE) { // if no left bracket, then cache Token and return
+			cacheToken();
+			return param;
+		}
+		BPLNode leftBracket = new BPLNode("[", token.getLineNumber());
+		param.addChild(leftBracket);
+
+		// check for the right bracket
+		if (!this.hasNextToken()) {
+			throw new BPLParserException("More tokens expected", param.getLineNumber());
+		}
+		token = this.getNextToken();
+		if (token.getType() != Token.T_RSQUARE) {
+			throw new BPLParserException("Missing token ']'", param.getLineNumber());
+		}
+		BPLNode rightBracket = new BPLNode("]", token.getLineNumber());
+		param.addChild(rightBracket);
+
+		return param;
+	}
 
 	/**
 	* grammar rule for compound statement node
@@ -257,6 +376,7 @@ public class BPLParser {
 		// get type specifier
 		BPLNode type = this.typeSpecifier();
 		BPLNode dec = new BPLNode("VAR_DEC", type.getLineNumber());
+		dec.addChild(type);
 
 		if (!this.hasNextToken()) {
  			throw new BPLParserException("More tokens expected", type.getLineNumber());
@@ -307,7 +427,7 @@ public class BPLParser {
 			cacheToken();
 			return dec;
 		}
-		BPLNode leftBracket = new BPLNode("LSQUARE_BR", token.getLineNumber());
+		BPLNode leftBracket = new BPLNode("[", token.getLineNumber());
 		dec.addChild(leftBracket);
 
 		// check for integer between the brackets
@@ -330,7 +450,7 @@ public class BPLParser {
 		if (token.getType() != Token.T_RSQUARE) {
 			throw new BPLParserException("Missing token ']'", dec.getLineNumber());
 		}
-		BPLNode rightBracket = new BPLNode("RSQUARE_BR", token.getLineNumber());
+		BPLNode rightBracket = new BPLNode("]", token.getLineNumber());
 		dec.addChild(rightBracket);
 
 		return dec;

@@ -1,9 +1,10 @@
 
-int katherine;
+int katherine[5];
 
-void potato() {
+void potato(int kat, string potato, int k[]) {
 	int x;
 	int y;
+	int kat[5];
 	if (x) {
 		return x;
 	}
