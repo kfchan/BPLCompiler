@@ -40,15 +40,21 @@ public class Token {
 	private final String tString;
 	private final int type;
 	private final int lineNumber;
+	private final int position;
 
-	public Token(String token, int type, int lineNum) {
+	public Token(String token, int type, int lineNum, int position) {
 		this.tString = token;
 		this.type = type;
 		this.lineNumber = lineNum;
+		this.position = position;
 	}
 
 	public String getValue() {
 		return this.tString;
+	}
+
+	public int getPosition() {
+		return position;
 	}
 
 	public int getType() {
@@ -60,6 +66,6 @@ public class Token {
 	}
 
 	public String toString() {
-		return "Token " + this.type + ", string '" + this.tString + "', line number " + this.lineNumber;
+		return "Token " + this.type + ", string '" + this.tString + "', line number " + this.lineNumber + ", position " + position;
 	}
 }

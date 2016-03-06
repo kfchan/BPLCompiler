@@ -3,14 +3,19 @@ int katherine[5];
 
 void potato(int kat, string potato, int k[]) {
 	int x;
-	int y;
-	int kat[5];
+	int kat[555];
 
-		*x;
+	x = 2; 
+	/* x = potato(5, "asdadsf", k) - 79; */
+	/* y = "hi"; */
+	/* kat[5] = 5 % asdf / jafsdjk; * 7; */
+	kat[5] = potato(5, "meow", kat);
 
-	if (x) {
-		return x;
-	} 
+	while(x != 1) {
+		x = x + 5;
+	}
+	return x;
 }
 
 string aaron;
+

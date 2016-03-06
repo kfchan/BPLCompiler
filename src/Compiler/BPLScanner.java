@@ -10,9 +10,11 @@ public class BPLScanner {
 	private Token curToken;
 	private String currentLine;
 	private int lineNumber;
+	private int position;
 	
 	public BPLScanner(String fileName)  {
 		this.fileName = fileName;
+		this.position = 0;
 		try {
 			this.scan = new Scanner(new File(fileName));
 		} catch (FileNotFoundException f) {
@@ -38,7 +40,8 @@ public class BPLScanner {
 	**/
 	public void getNextToken() throws BPLScannerException {
 		if (currentLine == "") {
-			curToken = new Token("", Token.T_EOF, lineNumber);
+			curToken = new Token("", Token.T_EOF, lineNumber, position);
+			position++;
 		}
 
 		int i = 0;
@@ -53,7 +56,8 @@ public class BPLScanner {
 				lineNumber++;
 				getNextToken();
 			} else { // end of file
-				curToken = new Token("", Token.T_EOF, lineNumber);
+				curToken = new Token("", Token.T_EOF, lineNumber, position);
+				position++;
 				currentLine = "";
 			}
 		} else {
@@ -64,7 +68,8 @@ public class BPLScanner {
 					j++;
 				}
 				String tokenString = currentLine.substring(i,j);
-				curToken = new Token(tokenString, Token.T_NUM, lineNumber);
+				curToken = new Token(tokenString, Token.T_NUM, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(j);
 			} else if (Character.isLetter(c)) {
 				j = i+1;
@@ -73,27 +78,38 @@ public class BPLScanner {
 				}
 				String tokenString = currentLine.substring(i,j);
 				if (tokenString.equals("int")) {
-					curToken = new Token(tokenString, Token.T_INT, lineNumber);
+					curToken = new Token(tokenString, Token.T_INT, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("void")) {
-					curToken = new Token(tokenString, Token.T_VOID, lineNumber);
+					curToken = new Token(tokenString, Token.T_VOID, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("string")) {
-					curToken = new Token(tokenString, Token.T_STRING, lineNumber);
+					curToken = new Token(tokenString, Token.T_STRING, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("if")) {
-					curToken = new Token(tokenString, Token.T_IF, lineNumber);
+					curToken = new Token(tokenString, Token.T_IF, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("else")) {
-					curToken = new Token(tokenString, Token.T_ELSE, lineNumber);
+					curToken = new Token(tokenString, Token.T_ELSE, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("while")) {
-					curToken = new Token(tokenString, Token.T_WHILE, lineNumber);
+					curToken = new Token(tokenString, Token.T_WHILE, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("write")) {
-					curToken = new Token(tokenString, Token.T_WRITE, lineNumber);
+					curToken = new Token(tokenString, Token.T_WRITE, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("writeln")) {
-					curToken = new Token(tokenString, Token.T_WRITELN, lineNumber);
+					curToken = new Token(tokenString, Token.T_WRITELN, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("return")) {
-					curToken = new Token(tokenString, Token.T_RETURN, lineNumber);
+					curToken = new Token(tokenString, Token.T_RETURN, lineNumber, position);
+					position++;
 				} else if (tokenString.equals("read")) {
-					curToken = new Token(tokenString, Token.T_READ, lineNumber);
+					curToken = new Token(tokenString, Token.T_READ, lineNumber, position);
+					position++;
 				} else {
-					curToken = new Token(tokenString, Token.T_ID, lineNumber);
+					curToken = new Token(tokenString, Token.T_ID, lineNumber, position);
+					position++;
 				}
 				currentLine = currentLine.substring(j);
 			} else if (c == '\"') {
@@ -107,13 +123,15 @@ public class BPLScanner {
 				}
 				j++;
 				String tokenString = currentLine.substring(i,j);
-				curToken = new Token(tokenString, Token.T_REALSTRING, lineNumber);
+				curToken = new Token(tokenString, Token.T_REALSTRING, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(j);
 			} else if (c == '/') { // should be a comment and we need to skip
 				char ch = currentLine.charAt(i);
 				// if there is no star after /, then it is just a / token
 				if (i+1 >= currentLine.length() || (i+1 < currentLine.length() && currentLine.charAt(i+1) != '*')) {
-					curToken = new Token("/", Token.T_BACKSLASH, lineNumber);
+					curToken = new Token("/", Token.T_BACKSLASH, lineNumber, position);
+					position++;
 					currentLine = currentLine.substring(i+1);
 					return;
 				} else { // found a star; this is a comment we need to skip
@@ -158,71 +176,91 @@ public class BPLScanner {
 					ch = currentLine.charAt(i);
 				}
 			}else if (c == '-') {
-				curToken = new Token ("-", Token.T_MINUS, lineNumber);
+				curToken = new Token ("-", Token.T_MINUS, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '+') {
-				curToken = new Token ("+", Token.T_PLUS, lineNumber);
+				curToken = new Token ("+", Token.T_PLUS, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == ';') {
-				curToken = new Token (";", Token.T_SEMICOL, lineNumber);
+				curToken = new Token (";", Token.T_SEMICOL, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '(') {
-				curToken = new Token ("(", Token.T_LPAREN, lineNumber);
+				curToken = new Token ("(", Token.T_LPAREN, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == ')') {
-				curToken = new Token (")", Token.T_RPAREN, lineNumber);
+				curToken = new Token (")", Token.T_RPAREN, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '{') {
-				curToken = new Token ("{", Token.T_LCURLY, lineNumber);
+				curToken = new Token ("{", Token.T_LCURLY, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '}') {
-				curToken = new Token ("}", Token.T_RCURLY, lineNumber);
+				curToken = new Token ("}", Token.T_RCURLY, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '[') {
-				curToken = new Token ("[", Token.T_LSQUARE, lineNumber);
+				curToken = new Token ("[", Token.T_LSQUARE, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == ']') {
-				curToken = new Token ("]", Token.T_RSQUARE, lineNumber);
+				curToken = new Token ("]", Token.T_RSQUARE, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '*') {
-				curToken = new Token ("*", Token.T_STAR, lineNumber);
+				curToken = new Token ("*", Token.T_STAR, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '%') {
-				curToken = new Token ("%", Token.T_PERCENT, lineNumber);
+				curToken = new Token ("%", Token.T_PERCENT, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '&') {
-				curToken = new Token ("&", Token.T_AMPER, lineNumber);
+				curToken = new Token ("&", Token.T_AMPER, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == ',') {
-				curToken = new Token (",", Token.T_COMMA, lineNumber);
+				curToken = new Token (",", Token.T_COMMA, lineNumber, position);
+				position++;
 				currentLine = currentLine.substring(i+1);
 			} else if (c == '=') {
 				if ((i+1 < currentLine.length()) && currentLine.charAt(i+1) == '=') {
-					curToken = new Token ("==", Token.T_EQCOMP, lineNumber);
+					curToken = new Token ("==", Token.T_EQCOMP, lineNumber, position);
+					position++;
 					currentLine = currentLine.substring(i+2);
 				} else {
-					curToken = new Token ("=", Token.T_EQ, lineNumber);
+					curToken = new Token ("=", Token.T_EQ, lineNumber, position);
+					position++;
 					currentLine = currentLine.substring(i+1);
 				}
 			} else if (c == '<') {
 				if ((i+1 < currentLine.length()) && currentLine.charAt(i+1) == '=') {
-					curToken = new Token ("<=", Token.T_LEQ, lineNumber);
+					curToken = new Token ("<=", Token.T_LEQ, lineNumber, position);
+					position++;
 					currentLine = currentLine.substring(i+2);
 				} else {
-					curToken = new Token ("<", Token.T_LESS, lineNumber);
+					curToken = new Token ("<", Token.T_LESS, lineNumber, position);
+					position++;
 					currentLine = currentLine.substring(i+1);
 				}
 			} else if (c == '>') {
 				if ((i+1 < currentLine.length()) && currentLine.charAt(i+1) == '=') {
-					curToken = new Token (">=", Token.T_GEQ, lineNumber);
+					curToken = new Token (">=", Token.T_GEQ, lineNumber, position);
+					position++;
 					currentLine = currentLine.substring(i+2);
 				} else {
-					curToken = new Token (">", Token.T_GREAT, lineNumber);
+					curToken = new Token (">", Token.T_GREAT, lineNumber, position);
+					position++;
 					currentLine = currentLine.substring(i+1);
 				}
 			} else if (c == '!') {
 				if ((i+1 < currentLine.length()) && currentLine.charAt(i+1) == '=') {
-					curToken = new Token ("!=", Token.T_NEQ, lineNumber);
+					curToken = new Token ("!=", Token.T_NEQ, lineNumber, position);
+					position++;
 					currentLine = currentLine.substring(i+2);
 				} else {
 					throw new BPLScannerException("Expected '=' after '!'", lineNumber);
