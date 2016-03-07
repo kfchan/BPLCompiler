@@ -6,13 +6,16 @@ void potato(int kat, string potato, int k[]) {
 	int kat[555];
 
 	x = 2; 
-	/* x = potato(5, "asdadsf", k) - 79; */
-	/* y = "hi"; */
-	/* kat[5] = 5 % asdf / jafsdjk; * 7; */
+	x = potato(5, "asdadsf", k) - 79;
+	y = "hi";
+	kat[5] = 5 % asdf / jafsdjk * 7;
 	kat[5] = potato(5, "meow", kat);
 
 	while(x != 1) {
 		x = x + 5;
+		if (x > 55) {
+		 return y;
+		}
 	}
 	return x;
 }
