@@ -294,7 +294,7 @@ public class BPLScanner {
 
 		inputFileName = args[0];
 		
-		myScanner = new BPLScanner(inputFileName);
+		myScanner = new BPLScanner("../" + inputFileName);
 		myScanner.getNextToken();
 		while (myScanner.nextToken().getType() != Token.T_EOF) {
 			System.out.println(myScanner.nextToken());

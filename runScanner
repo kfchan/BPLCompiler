@@ -1,4 +1,9 @@
 #!/bin/bash
 
-cd bin
-java Compiler.BPLScanner ../factorial.bpl
+if [ $# -lt 1 ] # if there are fewer than 2 arguments
+then
+    echo "One file needed!"
+else
+    cd bin
+	java Compiler.BPLScanner $1 
+fi

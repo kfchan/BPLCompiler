@@ -989,7 +989,7 @@ public class BPLParser {
 			System.exit(1);
 		}
 		String fileName = pirateArgs[0];
-		BPLParser parser = new BPLParser(fileName);
+		BPLParser parser = new BPLParser("../" + fileName);
 		System.out.println(parser);
 		System.exit(0);
 	}

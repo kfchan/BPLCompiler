@@ -1,0 +1,7 @@
+My BPL Compiler!
+Katherine Chan
+
+Run any of the following scripts in this (BPLCompiler) directory. 
+To run:
+  - the parser: './runParser <file>'
+  - the scanner: './runScanner <file>'
