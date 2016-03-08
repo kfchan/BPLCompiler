@@ -91,19 +91,17 @@ public class BPLParser {
 	*/	
 	private BPLNode declarationList() throws BPLScannerException, BPLParserException {
 		BPLNode declaration = this.declaration();
-		BPLNode declarationList = new BPLNode("DECLARATION_LIST", declaration.getLineNumber());	
-
 		this.checkForNextToken();
 		Token token = this.getNextToken();
+		BPLNode declarationList = new BPLNode("DECLARATION_LIST", declaration.getLineNumber());	
 		if (token.getType() == Token.T_EOF) {
 			declarationList.addChild(declaration);
 			return declarationList;
 		}
 		this.cacheToken();
 		BPLNode declarationListChild = this.declarationList();
-		declarationList.addChild(declarationListChild);
-		declarationList.setLineNumber(declarationListChild.getLineNumber());
 		declarationList.addChild(declaration);
+		declarationList.addChild(declarationListChild);
 		return declarationList;
 	}
 
@@ -124,7 +122,7 @@ public class BPLParser {
 			cacheThisToken(token1);
 			cacheThisToken(token2);
 			BPLNode varDec = this.varDec();
-			BPLNode dec = new BPLNode("DECLARATION", token1.getLineNumber());
+			BPLNode dec = new BPLNode("DECLARATION", token2.getLineNumber());
 			dec.addChild(varDec);
 			return dec;
 		} 
@@ -146,7 +144,7 @@ public class BPLParser {
 			throw new BPLParserException("Unexpected token type", token3.getLineNumber());
 		}
 
-		BPLNode dec = new BPLNode("DECLARATION", token1.getLineNumber());
+		BPLNode dec = new BPLNode("DECLARATION", token3.getLineNumber());
 		dec.addChild(child);
 		return dec;
 	}
@@ -200,9 +198,9 @@ public class BPLParser {
 	*/
 	private BPLNode paramList() throws BPLScannerException, BPLParserException {
 		BPLNode param = this.param();
-		BPLNode paramList = new BPLNode("PARAM_LIST", param.getLineNumber());
 		this.checkForNextToken();
 		Token token = this.getNextToken();
+		BPLNode paramList = new BPLNode("PARAM_LIST", token.getLineNumber());
 		
 		if (token.getType() == Token.T_RPAREN) {
 			this.cacheToken();
@@ -221,11 +219,10 @@ public class BPLParser {
 	*/	
 	private BPLNode param() throws BPLScannerException, BPLParserException {
 		BPLNode type = this.typeSpecifier();
-		BPLNode param = new BPLNode("PARAM", type.getLineNumber());
-		param.addChild(type);
-
 		this.checkForNextToken();
 		Token token = this.getNextToken();
+		BPLNode param = new BPLNode("PARAM", token.getLineNumber());
+		param.addChild(type);
 		if (token.getType() == Token.T_STAR) { // if next token is star, then there must be an id that follows
 			BPLNode star = new BPLNode("*", token.getLineNumber());
 			param.addChild(star);
@@ -237,7 +234,6 @@ public class BPLParser {
 		} else if (token.getType() == Token.T_ID) { // if id token is next, then also check for [] tokens
 			BPLNode id = new BPLVarNode(token.getValue(), token.getLineNumber());
 			param.addChild(id);
-
 			param = paramBracketHelper(param);
 		} else {
 			throw new BPLParserException("Unexpected token type", token.getLineNumber());
@@ -277,12 +273,9 @@ public class BPLParser {
 		BPLNode localDs  = this.localDecs();
 		BPLNode statementList = this.statementList();
 
-		if (this.hasNextToken()) {
-			Token token = this.getNextToken();
-			this.checkTokenType(token, Token.T_RCURLY);
-		} else {
-			throw new BPLParserException("More tokens expected");
-		}
+		this.checkForNextToken();
+		Token token = this.getNextToken();
+		this.checkTokenType(token, Token.T_RCURLY);
 
 		BPLNode compoundStmt = new BPLNode("COMPOUND_STMT", lcurly.getLineNumber());
 		compoundStmt.addChild(localDs);
@@ -315,11 +308,10 @@ public class BPLParser {
 	*/
 	private BPLNode varDec() throws BPLScannerException, BPLParserException {
 		BPLNode type = this.typeSpecifier();
-		BPLNode dec = new BPLNode("VAR_DEC", type.getLineNumber());
-		dec.addChild(type);
-
 		this.checkForNextToken();
 		Token token = this.getNextToken();
+		BPLNode dec = new BPLNode("VAR_DEC", token.getLineNumber());
+		dec.addChild(type);
 		if (token.getType() == Token.T_STAR) { // if next token is star, then there must be an id that follows
 			BPLNode star = new BPLNode("*", token.getLineNumber());
 			dec.addChild(star);
@@ -336,7 +328,6 @@ public class BPLParser {
 		} else {
 			throw new BPLParserException("Unexpected token type", token.getLineNumber());
 		}
-
 		this.checkAndConsumeToken(Token.T_SEMICOL);
 		return dec;
 	}
@@ -397,13 +388,12 @@ public class BPLParser {
 		if (token.getType() == Token.T_RCURLY) {
 			return new BPLNode("<empty>", token.getLineNumber());
 		}
-
 		BPLNode statement = this.statement();
-		BPLNode statementList = new BPLNode("STATEMENT_LIST", statement.getLineNumber());
+		BPLNode statementList = new BPLNode("STATEMENT_LIST", token.getLineNumber());
 		BPLNode sList = this.statementList();
 
-		statementList.addChild(sList);
 		statementList.addChild(statement);
+		statementList.addChild(sList);
 		return statementList;
 	}
 
@@ -429,8 +419,7 @@ public class BPLParser {
 		} else {
 			node = this.expressionStmt();
 		}
-
-		BPLNode statement = new BPLNode("STATEMENT", node.getLineNumber());
+		BPLNode statement = new BPLNode("STATEMENT", token.getLineNumber());
 		statement.addChild(node);
 		return statement;
 	}
@@ -457,9 +446,8 @@ public class BPLParser {
 			this.cacheToken();
 			return node;
 		}
-
 		statement = this.statement();
-		BPLNode el = new BPLNode("ELSE_STMT", statement.getLineNumber());
+		BPLNode el = new BPLNode("ELSE_STMT", token.getLineNumber());
 		el.addChild(statement);
 		node.addChild(el);
 		return node;
@@ -489,17 +477,16 @@ public class BPLParser {
 	private BPLNode writeStmt() throws BPLScannerException, BPLParserException {
 		this.checkForNextToken();
 		Token writeTok = this.getNextToken();
-		this.checkTokenType(writeTok, Token.T_WRITE);
-		this.checkTokenType(writeTok, Token.T_WRITELN);
+		if ((writeTok.getType() != Token.T_WRITE) && (writeTok.getType() != Token.T_WRITELN)) {
+			throw new BPLParserException("Unexpected token type", writeTok.getLineNumber());
+		}
 
 		BPLNode node = new BPLNode("WRITE_STMT", writeTok.getLineNumber());
 		this.checkAndConsumeToken(Token.T_LPAREN);
-
 		if (writeTok.getType() == Token.T_WRITE) {
 			BPLNode expres = this.expression();
 			node.addChild(expres);
 		}
-
 		this.checkAndConsumeToken(Token.T_RPAREN);
 		this.checkAndConsumeToken(Token.T_SEMICOL);
 		return node;
@@ -519,12 +506,11 @@ public class BPLParser {
 		if (token.getType() != Token.T_SEMICOL) { // if no semicolin, then there must be an expression
 			this.cacheToken();
 			BPLNode expression = this.expression();
-			returnStmt.setLineNumber(expression.getLineNumber());				
+			returnStmt.setLineNumber(token.getLineNumber());				
 			returnStmt.addChild(expression);
 		} else {
 			return returnStmt;
 		}
-
 		this.checkAndConsumeToken(Token.T_SEMICOL);
 		return returnStmt;
 	}
@@ -595,7 +581,6 @@ public class BPLParser {
 		} else {
 			throw new BPLParserException("Invalid expression", lastToken.getLineNumber());
 		}
-
 		return exp;
 	}
 
@@ -650,7 +635,6 @@ public class BPLParser {
 			this.cacheToken();
 			return var;
 		}
-
 		var.addChild(new BPLNode("[", nextToken.getLineNumber()));
 		var.addChild(this.expression());
 		this.checkAndConsumeToken(Token.T_RSQUARE);
@@ -663,21 +647,19 @@ public class BPLParser {
 	*/
 	private BPLNode compExp() throws BPLParserException, BPLScannerException {
 		BPLNode e1 = this.e();
-		BPLNode compExp = new BPLNode("COMP_EXP", e1.getLineNumber());
 		this.checkForNextToken();
-
 		Token token = this.getNextToken();
 		this.cacheToken();
+		BPLNode compExp = new BPLNode("COMP_EXP", token.getLineNumber());		
 		if (!this.isRelop(token)) { // just E
 			compExp.addChild(e1);
 			return compExp;
 		} 
-
 		BPLNode relop = this.relop();
 		BPLNode e2 = this.e();
-		compExp.addChild(e2);
-		compExp.addChild(relop);
 		compExp.addChild(e1);
+		compExp.addChild(relop);
+		compExp.addChild(e2);
 		return compExp;
 	}
 
@@ -725,21 +707,27 @@ public class BPLParser {
 	*/
 	private BPLNode e() throws BPLParserException, BPLScannerException {
 		BPLNode t = this.t();
-		BPLNode e = new BPLNode("E", t.getLineNumber());
-
 		this.checkForNextToken();
 		Token token = this.getNextToken();
 		this.cacheToken();
 		if ((token.getType() != Token.T_PLUS) && (token.getType() != Token.T_MINUS)) {
-			e.addChild(t);
-			return e;			
+			return t;
 		}
 
-		BPLNode addop = this.addop();
-		BPLNode childE = this.e();
-		e.addChild(childE);
-		e.addChild(addop);
+		BPLNode e = new BPLNode("E", token.getLineNumber());
 		e.addChild(t);
+		while ((token.getType() == Token.T_PLUS) || (token.getType() == Token.T_MINUS)) {
+			BPLNode addop = this.addop();
+			BPLNode newT = this.t();
+			BPLNode newParent = new BPLNode("E", token.getLineNumber());
+			newParent.addChild(e);
+			newParent.addChild(addop);
+			newParent.addChild(newT);
+			e = newParent;
+			this.checkForNextToken();
+			token = this.getNextToken();
+			this.cacheToken();
+		}
 		return e;
 	}
 
@@ -769,21 +757,27 @@ public class BPLParser {
 	*/
 	private BPLNode t() throws BPLParserException, BPLScannerException {
 		BPLNode f = this.f();
-		BPLNode t = new BPLNode("T", f.getLineNumber());
-
 		this.checkForNextToken();
 		Token token = this.getNextToken();
 		this.cacheToken();
 		if ((token.getType() != Token.T_STAR) && (token.getType() != Token.T_BACKSLASH) && (token.getType() != Token.T_PERCENT)) {
-			t.addChild(f);
-			return t;
+			return f;
 		}
 
-		BPLNode mulop = this.mulop();
-		BPLNode childT = this.t();
-		t.addChild(childT);
-		t.addChild(mulop);
+		BPLNode t = new BPLNode("T", token.getLineNumber());
 		t.addChild(f);
+		while ((token.getType() == Token.T_STAR) || (token.getType() == Token.T_BACKSLASH) || (token.getType() == Token.T_PERCENT)) {
+			BPLNode mulop = this.mulop();
+			BPLNode newF = this.f();
+			BPLNode newParent = new BPLNode("T", token.getLineNumber());
+			newParent.addChild(t);
+			newParent.addChild(mulop);
+			newParent.addChild(newF);
+			t = newParent;
+			this.checkForNextToken();
+			token = this.getNextToken();
+			this.cacheToken();
+		}
 		return t;
 	}	
 
@@ -922,10 +916,9 @@ public class BPLParser {
 	*/
 	private BPLNode argList() throws BPLParserException, BPLScannerException {
 		BPLNode exp = this.expression();
-		BPLNode argList = new BPLNode("ARGS", exp.getLineNumber());
 		this.checkForNextToken();
 		Token token = this.getNextToken();
-
+		BPLNode argList = new BPLNode("ARGS", token.getLineNumber());
 		if (token.getType() == Token.T_RPAREN) {
 			this.cacheToken();
 			argList.addChild(exp);

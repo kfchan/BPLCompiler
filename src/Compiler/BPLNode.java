@@ -15,6 +15,10 @@ public class BPLNode {
 		this.children = new ArrayList<BPLNode>();
 	}
 
+	public String getType() {
+		return this.type;
+	}
+
 	public int getLineNumber() {
 		return this.lineNumber;
 	}
@@ -34,6 +38,10 @@ public class BPLNode {
 
 	public void addChild(BPLNode child) {
 		this.children.add(child);
+	}
+
+	public void setChild(int index, BPLNode child) {
+		this.children.set(index, child);
 	}
 
 	public int getChildrenSize() {
