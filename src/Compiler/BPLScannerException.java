@@ -1,12 +1,8 @@
 package Compiler;
 
-public class BPLScannerException extends Exception {
+public class BPLScannerException extends BPLException {
 	public BPLScannerException() { 
 		super(); 
-	}
-
-	public BPLScannerException(String message) { 
-		super(message + "."); 
 	}
 
 	public BPLScannerException(String message, int lineNumber) { 
