@@ -5,7 +5,11 @@ public class BPLParserException extends BPLException {
 		super(); 
 	}
 
+	public BPLParserException(String message) { 
+		super(message); 
+	}	
+
 	public BPLParserException(String message, int lineNumber) { 
-		super(message + " (Line " + lineNumber + ")."); 
+		super(message + " (Line " + lineNumber + ")"); 
 	}
 }

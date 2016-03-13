@@ -14,6 +14,10 @@ public class BPLVarNode extends BPLNode {
 		this.lineNumber = lineNumber;
 	}
 
+	public String getID() {
+		return this.id;
+	}
+
 	@Override
 	public String toString() {
 		String rtn = "Line " + this.getLineNumber() + ": ID " + id + "\n";
