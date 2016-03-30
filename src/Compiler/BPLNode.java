@@ -10,12 +10,22 @@ public class BPLNode {
 	private ArrayList<BPLNode> children;
 	private BPLNode parent;
 	private BPLNode declaration;
+	private String name;
 
 	public BPLNode(String type, int lineNumber) {
 		this.type = type;
 		this.lineNumber = lineNumber;
 		this.children = new ArrayList<BPLNode>();
 		this.declaration = null;
+		this.name = null;
+	}
+
+	public void setName(String n) {
+		this.name = n;
+	}
+
+	public String getName() {
+		return this.name;
 	}
 
 	public String getType() {
@@ -37,6 +47,10 @@ public class BPLNode {
 
 	public void setDeclaration(BPLNode dec) {
 		this.declaration = dec;
+	}
+
+	public BPLNode getDeclaration() {
+		return this.declaration;
 	}
 
 	public ArrayList<BPLNode> getChildren() {

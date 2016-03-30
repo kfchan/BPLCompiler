@@ -153,6 +153,7 @@ public class BPLParser {
 	* grammar rule for compound statement node
 	*/
 	private BPLNode funDec() throws BPLException {
+		boolean isMain = false;
 		BPLNode type = this.typeSpecifier();
 		this.checkForNextToken();
 		Token token = getNextToken();
@@ -209,9 +210,9 @@ public class BPLParser {
 		} 
 		this.checkTokenType(token, Token.T_COMMA);
 		BPLNode childParamList = this.paramList();
-		param.addChild(childParamList);
-		param.addChild(paramList);
-		return param;
+		paramList.addChild(param);
+		paramList.addChild(childParamList);
+		return paramList;
 	}
 
 	/**
@@ -298,8 +299,8 @@ public class BPLParser {
 		BPLNode localD = new BPLNode("LOCAL_DECS", varD.getLineNumber());
 		BPLNode localDs = this.localDecs();
 		
-		localD.addChild(localDs);
 		localD.addChild(varD);
+		localD.addChild(localDs);
 		return localD;
 	} 
 
