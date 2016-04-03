@@ -4,6 +4,8 @@ import java.util.*;
 
 public class BPLTypeChecker {
 	private static final boolean DEBUG = true;
+	private static final int TYPE_INT = 0;
+	private static final int TYPE_STRING = 1;
 
 	private final BPLParser parser;
 	
@@ -52,20 +54,19 @@ public class BPLTypeChecker {
 
 	private void addToGlobalDecs(BPLNode decChild) {
 		String varName = this.getNameFromVarDec(decChild);
-		this.printDebug("Adding VAR_DEC " + varName + " to global");
+		this.printDebug("Adding VAR_DEC " + varName + " to global decs");
 		this.globalDecs.put(varName, decChild);
 	}
 
 	private void addFunToDecs(BPLNode funDec) {
 		BPLNode idNode = funDec.getChild(1);
 		String id = ((BPLVarNode) idNode).getID();
-		this.printDebug("Adding FUN_DEC " + id + " to global");
+		this.printDebug("Adding FUN_DEC " + id + " to global decs");
 		this.globalDecs.put(id, funDec);
 	}
 
 	private void handleFunDec(BPLNode funDec) throws BPLException {
 		// create new local decs
-		printDebug("New local decs list");
 		this.localDecs.clear();
 
 		// params
@@ -73,6 +74,15 @@ public class BPLTypeChecker {
 
 		// compound statement
 		this.handleCmpdStmt(funDec.getChild(3));
+
+		// clear localdecs (remove params)
+		// this.localDecs.clear();
+		// TODO: use while loop when still printing removal and addition of localdecs
+		while (!this.localDecs.isEmpty()) {
+			BPLNode polled = this.localDecs.poll();
+			String polledName = polled.getName();
+			this.printDebug("Removing PARAM " + polledName + " from local decs");
+		}
 	}
 
 	private void addParamsToLocal(BPLNode params) throws BPLException {
@@ -88,12 +98,11 @@ public class BPLTypeChecker {
 		BPLVarNode id;
 		if (param.getChild(1).isType("ID")) {
 			id = (BPLVarNode) param.getChild(1);
-			
 		} else {
 			id = (BPLVarNode) param.getChild(2);
 		}
-		param.setName(id.getID());
 
+		param.setName(id.getID());
 		this.printDebug("Adding PARAM " + param.getName() + " to local decs");
 		this.localDecs.addFirst(paramList.getChild(0));
 
@@ -104,15 +113,19 @@ public class BPLTypeChecker {
 
 	private void handleCmpdStmt(BPLNode cmpdStmt) throws BPLException {
 		// add local decs to linkedList
-		this.addLocalDecs(cmpdStmt.getChild(0));
+		int size = this.addLocalDecs(cmpdStmt.getChild(0));
+		this.scopeSizes.push(size);
 
 		// finds references for the statement list
 		this.findReferences(cmpdStmt.getChild(1));
+
+		// remove local variables
+		this.removeLocalDecs();
 	}
 
-	private void addLocalDecs(BPLNode localDecs) throws BPLException {
+	private int addLocalDecs(BPLNode localDecs) throws BPLException {
 		if (localDecs.isType("<empty>")) {
-			return;
+			return 0;
 		}
 
 		BPLNode varDec = localDecs.getChild(0);
@@ -121,7 +134,17 @@ public class BPLTypeChecker {
 		this.printDebug("Adding VAR_DEC " + varName + " to local decs");
 		this.localDecs.addFirst(varDec);
 
-		this.addLocalDecs(localDecs.getChild(1));
+		return 1 + this.addLocalDecs(localDecs.getChild(1));
+	}
+
+	private void removeLocalDecs() {
+		int localDecsSize = this.scopeSizes.peek();
+		for (int i = 0; i < localDecsSize; i++) {
+			BPLNode polled = this.localDecs.poll();
+			String polledName = polled.getName();
+			this.printDebug("Removing VAR_DEC " + polledName + " from local decs");
+		}
+		this.scopeSizes.pop();
 	}
 
 	private void findReferences(BPLNode stmtList) throws BPLException {
