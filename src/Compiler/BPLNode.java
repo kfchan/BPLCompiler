@@ -32,8 +32,8 @@ public class BPLNode {
 		return this.type;
 	}
 
-	public boolean isType(String type) {
-		return (this.type.equals(type));
+	public boolean isType(String t) {
+		return (this.type.equals(t));
 	}
 
 	public int getLineNumber() {

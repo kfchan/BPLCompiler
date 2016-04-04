@@ -4,10 +4,13 @@ import java.util.*;
 
 public class BPLTypeChecker {
 	private static final boolean DEBUG = true;
-	private static final String TYPE_VAR = "var";
 	private static final String TYPE_VOID = "void";
 	private static final String TYPE_INT = "int";
 	private static final String TYPE_STRING = "string";
+	private static final String TYPE_PTRINT = "pointer to integer";
+	private static final String TYPE_PTRSTRING = "pointer to string";
+	private static final String TYPE_ADDINT = "address of integer";
+	private static final String TYPE_ADDSTRING = "address of integer";
 
 	private final BPLParser parser;
 	
@@ -56,14 +59,20 @@ public class BPLTypeChecker {
 
 	private void addToGlobalDecs(BPLNode decChild) throws BPLException {
 		String varName = this.getNameFromVarDec(decChild);
+		if (this.globalDecs.containsKey(varName)) {
+			throw new BPLTypeCheckerException("ID " + varName + " already declared globally");
+		}
 		this.checkVoid(decChild, varName);
 		this.printDebug("Adding VAR_DEC " + varName + " to global decs");
 		this.globalDecs.put(varName, decChild);
 	}
 
-	private void addFunToDecs(BPLNode funDec) {
+	private void addFunToDecs(BPLNode funDec) throws BPLException {
 		BPLNode idNode = funDec.getChild(1);
 		String id = ((BPLVarNode) idNode).getID();
+		if (this.globalDecs.containsKey(id)) {
+			throw new BPLTypeCheckerException("ID " + id + " already declared globally");
+		}
 		this.printDebug("Adding FUN_DEC " + id + " to global decs");
 		this.globalDecs.put(id, funDec);
 	}
@@ -227,7 +236,13 @@ public class BPLTypeChecker {
 
 		String expType = this.findRefExpression(expression.getChild(2));
 
-		if (varType.equals(expType)){
+		if (varType.equals(expType) || 
+			(varType.equals(this.TYPE_PTRSTRING) && expType.equals(this.TYPE_ADDSTRING) && var.getChildrenSize() == 1) ||
+			(varType.equals(this.TYPE_PTRINT) && expType.equals(this.TYPE_ADDINT) && var.getChildrenSize() == 1) ||
+			(varType.equals(this.TYPE_INT) && expType.equals(this.TYPE_PTRINT)) ||
+			(varType.equals(this.TYPE_STRING) && expType.equals(this.TYPE_PTRSTRING)) ||
+			(varType.equals(this.TYPE_PTRSTRING) && expType.equals(this.TYPE_STRING) && var.getChildrenSize() == 2) ||
+			(varType.equals(this.TYPE_PTRINT) && expType.equals(this.TYPE_INT) && var.getChildrenSize() == 2)) {
 			return varType;
 		}
 		throw new BPLTypeCheckerException("Types do not match", expression.getLineNumber());
@@ -249,9 +264,9 @@ public class BPLTypeChecker {
 
 	private String getVarName(BPLNode var) {
 		BPLNode child = var.getChild(0);
-		if (var.isType("*")) {
-			child = var.getChild(1);			
-		} 
+		if (child.isType("*")) {
+			child = var.getChild(1);		
+		} 	
 		return ((BPLVarNode) child).getID();
 	}
 
@@ -264,6 +279,7 @@ public class BPLTypeChecker {
 
 		String type2 = this.evaluate(compExp.getChild(2));
 
+		// TODO: compare pointers or addresses? 
 		if (type1.equals(type2)) {
 			return type1;
 		}
@@ -282,7 +298,6 @@ public class BPLTypeChecker {
 
 		String type2 = this.evaluate(node.getChild(2));
 
-		// TODO: type check here?
 		if (type1.equals(this.TYPE_INT) && type1.equals(this.TYPE_INT)) {
 			return type1;
 		}
@@ -298,16 +313,28 @@ public class BPLTypeChecker {
 			return fType;
 		}
 		String factorType = this.handleFactor(this.getFactor(f));
-		// TODO: change type here?
-		return factorType;
+		return this.checkForPointer(f, factorType);
+	}
+
+	private String checkForPointer(BPLNode f, String origFactorType) {
+		BPLNode child = f.getChild(0);
+		if (child.isType("FACTOR")) {
+			return origFactorType;
+		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRINT)) {
+			return this.TYPE_ADDINT;
+		} else if (child.isType("*") && origFactorType.equals(this.TYPE_PTRINT)) {
+			return this.TYPE_PTRINT;
+		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRSTRING)) {
+			return this.TYPE_ADDSTRING;
+		} 
+		return this.TYPE_PTRSTRING;
 	}
 
 	private BPLNode getFactor(BPLNode f) {
 		BPLNode child = f.getChild(0);
 		if (child.isType("FACTOR")) {
 			return child;
-		}
-
+		} 
 		return f.getChild(1);
 	}
 
@@ -325,7 +352,6 @@ public class BPLTypeChecker {
 		} else if (factChild.isType("EXPRESSION"))	{
 			return this.findRefExpression(factChild);
 		} else if (factChild.isType("FUN_CALL")) {
-			// TODO check params vs args
 			return this.getFunRef(factChild);
 		} else if (factChild.isType("STRING")) {
 			return this.TYPE_STRING;
@@ -344,6 +370,7 @@ public class BPLTypeChecker {
 
 		BPLNode funRef = this.globalDecs.get(id);
 		this.printDebug("Function call " + id + " on line " + funCall.getLineNumber() + " linked to declaration on line " + funRef.getLineNumber());
+		
 		this.compareParamArgs(funRef, funCall, id);
 
 		String funType = this.getFunDecType(funRef);
@@ -395,7 +422,12 @@ public class BPLTypeChecker {
 
 	private String getVarType(BPLNode ref, String id) throws BPLException {
 		BPLNode typeSpec = ref.getChild(0);
-		if (typeSpec.isType("int")) {
+		BPLNode child1 = ref.getChild(1);
+		if (typeSpec.isType("int") && child1.isType("*")) {
+			return this.TYPE_PTRINT;
+		} else if (typeSpec.isType("string") && child1.isType("*")) {
+			return this.TYPE_PTRSTRING;
+		} else if (typeSpec.isType("int")) {
 			return this.TYPE_INT;
 		} 
 		return this.TYPE_STRING;
