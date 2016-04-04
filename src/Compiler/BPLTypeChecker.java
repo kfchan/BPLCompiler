@@ -4,8 +4,10 @@ import java.util.*;
 
 public class BPLTypeChecker {
 	private static final boolean DEBUG = true;
-	private static final int TYPE_INT = 0;
-	private static final int TYPE_STRING = 1;
+	private static final String TYPE_VAR = "var";
+	private static final String TYPE_VOID = "void";
+	private static final String TYPE_INT = "int";
+	private static final String TYPE_STRING = "string";
 
 	private final BPLParser parser;
 	
@@ -52,8 +54,9 @@ public class BPLTypeChecker {
 		return head.getChild(0);
 	}
 
-	private void addToGlobalDecs(BPLNode decChild) {
+	private void addToGlobalDecs(BPLNode decChild) throws BPLException {
 		String varName = this.getNameFromVarDec(decChild);
+		this.checkVoid(decChild, varName);
 		this.printDebug("Adding VAR_DEC " + varName + " to global decs");
 		this.globalDecs.put(varName, decChild);
 	}
@@ -102,8 +105,10 @@ public class BPLTypeChecker {
 			id = (BPLVarNode) param.getChild(2);
 		}
 
-		param.setName(id.getID());
+		String name = id.getID();
+		param.setName(name);
 		this.printDebug("Adding PARAM " + param.getName() + " to local decs");
+		this.checkVoid(param, name);
 		this.localDecs.addFirst(paramList.getChild(0));
 
 		if (paramList.getChildrenSize() == 2) {
@@ -131,6 +136,7 @@ public class BPLTypeChecker {
 		BPLNode varDec = localDecs.getChild(0);
 		String varName = getNameFromVarDec(varDec);
 		varDec.setName(varName);
+		this.checkVoid(varDec, varName);
 		this.printDebug("Adding VAR_DEC " + varName + " to local decs");
 		this.localDecs.addFirst(varDec);
 
@@ -205,22 +211,26 @@ public class BPLTypeChecker {
 		this.findRefExpression(expStmt.getChild(0));
 	}
 
-	private void findRefExpression(BPLNode expression) throws BPLException {
+	private String findRefExpression(BPLNode expression) throws BPLException {
 		if (expression.getChildrenSize() == 1) { // compexp
-			this.handleCompExp(expression.getChild(0));
-			return;
+			return this.handleCompExp(expression.getChild(0));
 		}
 		// get reference of vars
 		BPLNode var = expression.getChild(0);
 		String varName = this.getVarName(var);
 		BPLNode ref = this.getVarReference(var, varName);
-		this.linkVarRef(var, varName, ref);
+		String varType = this.linkVarRef(var, varName, ref);
 
-		if (var.getChildrenSize() == 4) {
+		if (var.getChildrenSize() == 4) { // array assignment
 			this.findRefExpression(var.getChild(2));
 		}
 
-		this.findRefExpression(expression.getChild(2));
+		String expType = this.findRefExpression(expression.getChild(2));
+
+		if (varType.equals(expType)){
+			return varType;
+		}
+		throw new BPLTypeCheckerException("Types do not match", expression.getLineNumber());
 	}
 
 	private BPLNode getVarReference(BPLNode var, String name) throws BPLException {
@@ -245,36 +255,51 @@ public class BPLTypeChecker {
 		return ((BPLVarNode) child).getID();
 	}
 
-	private void handleCompExp(BPLNode compExp) throws BPLException {
-		this.evaluate(compExp.getChild(0));
+	private String handleCompExp(BPLNode compExp) throws BPLException {
+		String type1 = this.evaluate(compExp.getChild(0));
 
 		if (compExp.getChildrenSize() == 1) {
-			return;
+			return type1;
 		}
 
-		this.evaluate(compExp.getChild(2));
+		String type2 = this.evaluate(compExp.getChild(2));
+
+		if (type1.equals(type2)) {
+			return type1;
+		}
+		throw new BPLTypeCheckerException("Types do not match", compExp.getLineNumber());
 	}
 
-	private void evaluate(BPLNode node) throws BPLException {
+	private String evaluate(BPLNode node) throws BPLException {
 		if (node.isType("F")) {
-			this.typeF(node);
-			return;
+			return this.typeF(node);
 		}
-		this.evaluate(node.getChild(0));
+		String type1 = this.evaluate(node.getChild(0));
 
 		if (node.getChildrenSize() == 1) {
-			return;
+			return type1;
 		}
 
-		this.evaluate(node.getChild(2));
+		String type2 = this.evaluate(node.getChild(2));
+
+		// TODO: type check here?
+		if (type1.equals(this.TYPE_INT) && type1.equals(this.TYPE_INT)) {
+			return type1;
+		}
+		throw new BPLTypeCheckerException("Types do not match", node.getLineNumber());
 	}
 
-	private void typeF(BPLNode f) throws BPLException {
+	private String typeF(BPLNode f) throws BPLException {
 		if (f.getChildrenSize() > 1 && f.getChild(1).isType("F")) {
-			this.typeF(f.getChild(1));
-			return;
+			String fType = this.typeF(f.getChild(1));
+			if (!fType.equals(this.TYPE_INT)) {
+				throw new BPLTypeCheckerException("Type " + fType + " cannot be negated", f.getLineNumber());
+			}
+			return fType;
 		}
-		this.handleFactor(this.getFactor(f));
+		String factorType = this.handleFactor(this.getFactor(f));
+		// TODO: change type here?
+		return factorType;
 	}
 
 	private BPLNode getFactor(BPLNode f) {
@@ -286,24 +311,30 @@ public class BPLTypeChecker {
 		return f.getChild(1);
 	}
 
-	private void handleFactor(BPLNode factor) throws BPLException {
+	private String handleFactor(BPLNode factor) throws BPLException {
 		BPLNode factChild = factor.getChild(0);
 
 		if (factChild.isType("ID")) {
 			String name = ((BPLVarNode) factChild).getID();
 			BPLNode ref = this.getVarReference(factChild, name);
-			this.linkVarRef(factChild, name, ref);
+			String idType = this.linkVarRef(factChild, name, ref);
 			if (factor.getChildrenSize() > 1) { // array
 				this.findRefExpression(factor.getChild(2));
 			}
+			return idType;
 		} else if (factChild.isType("EXPRESSION"))	{
-			this.findRefExpression(factChild);
+			return this.findRefExpression(factChild);
 		} else if (factChild.isType("FUN_CALL")) {
-			this.getFunRef(factChild);
-		}
+			// TODO check params vs args
+			return this.getFunRef(factChild);
+		} else if (factChild.isType("STRING")) {
+			return this.TYPE_STRING;
+		} 
+		// int or read()
+		return this.TYPE_INT;
 	}
 
-	private void getFunRef(BPLNode funCall) throws BPLException {
+	private String getFunRef(BPLNode funCall) throws BPLException {
 		BPLNode idChild = funCall.getChild(0);
 		String id = ((BPLVarNode) idChild).getID();
 
@@ -313,11 +344,67 @@ public class BPLTypeChecker {
 
 		BPLNode funRef = this.globalDecs.get(id);
 		this.printDebug("Function call " + id + " on line " + funCall.getLineNumber() + " linked to declaration on line " + funRef.getLineNumber());
+		this.compareParamArgs(funRef, funCall, id);
+
+		String funType = this.getFunDecType(funRef);
+		this.printDebug("Function call " + id + " on line " + funCall.getLineNumber() + " assigned to type " + funType);
+		return funType;
 	}
 
-	private void linkVarRef(BPLNode node, String id, BPLNode ref) {
+	private void compareParamArgs(BPLNode funRef, BPLNode funCall, String id) throws BPLException {
+		BPLNode argsChild = funCall.getChild(1).getChild(0);
+		BPLNode paramsChild = funRef.getChild(2).getChild(0);
+		if (argsChild.isType("<empty>") && paramsChild.isType("void")) {
+			return;
+		} else if (argsChild.isType("<empty>") || paramsChild.isType("void")) {
+			throw new BPLTypeCheckerException("Arguments of " + id + " does not match declaration", funCall.getLineNumber());
+		}
+		compareParamArgsHelper(paramsChild, argsChild, id);
+	}
+
+	private void compareParamArgsHelper(BPLNode paramList, BPLNode argList, String id) throws BPLException {
+		String argType = this.findRefExpression(argList.getChild(0));
+		String paramType = this.getVarType(paramList.getChild(0), id);
+
+		if (!argType.equals(paramType) || paramList.getChildrenSize() != argList.getChildrenSize()) {
+			throw new BPLTypeCheckerException("Arguments of " + id + " does not match declaration", argList.getLineNumber());
+		}
+
+		if (paramList.getChildrenSize() > 1) {
+			compareParamArgsHelper(paramList.getChild(1), argList.getChild(1), id);
+		}
+	}
+
+	private String getFunDecType(BPLNode funDec) {
+		BPLNode typeSpec = funDec.getChild(0);
+		if (typeSpec.isType("int")) {
+			return this.TYPE_INT;
+		} else if (typeSpec.isType("void")) {
+			return this.TYPE_VOID;
+		}
+		return this.TYPE_STRING;
+	}
+
+	private String linkVarRef(BPLNode node, String id, BPLNode ref) throws BPLException {
 		node.setDeclaration(ref);
 		this.printDebug("Variable " + id + " on line " + node.getLineNumber() + " linked to declaration on line " + ref.getLineNumber());
+		String varType = this.getVarType(ref, id);
+		this.printDebug("id node " + id + " on line " + node.getLineNumber() + " assigned type " + varType);
+		return varType;
+	}
+
+	private String getVarType(BPLNode ref, String id) throws BPLException {
+		BPLNode typeSpec = ref.getChild(0);
+		if (typeSpec.isType("int")) {
+			return this.TYPE_INT;
+		} 
+		return this.TYPE_STRING;
+	}
+
+	private void checkVoid(BPLNode node, String name) throws BPLException {
+		if (node.getChild(0).isType("void")) {
+			throw new BPLTypeCheckerException("Variable " + name + " cannot be type void", node.getLineNumber());
+		}
 	}
 
 	private String getNameFromVarDec(BPLNode varDec) {

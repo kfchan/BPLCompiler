@@ -919,16 +919,16 @@ public class BPLParser {
 		BPLNode exp = this.expression();
 		this.checkForNextToken();
 		Token token = this.getNextToken();
-		BPLNode argList = new BPLNode("ARGS", token.getLineNumber());
+		BPLNode argList = new BPLNode("ARG_LIST", token.getLineNumber());
 		if (token.getType() == Token.T_RPAREN) {
 			this.cacheToken();
 			argList.addChild(exp);
-			return exp;
+			return argList;
 		}
 		this.checkTokenType(token, Token.T_COMMA);
 		BPLNode childArgList = this.argList();
-		argList.addChild(childArgList);
 		argList.addChild(exp);
+		argList.addChild(childArgList);
 		return argList;
 	}	
 
