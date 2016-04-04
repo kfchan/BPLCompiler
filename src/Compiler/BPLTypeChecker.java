@@ -11,6 +11,8 @@ public class BPLTypeChecker {
 	private static final String TYPE_PTRSTRING = "pointer to string";
 	private static final String TYPE_ADDINT = "address of integer";
 	private static final String TYPE_ADDSTRING = "address of integer";
+	private static final String TYPE_INTARRAY = "array of integers";
+	private static final String TYPE_STRINGARRAY = "array of strings";
 
 	private final BPLParser parser;
 	
@@ -18,6 +20,7 @@ public class BPLTypeChecker {
 	private HashMap<String, BPLNode> globalDecs;
 	private LinkedList<BPLNode> localDecs; 
 	private Stack<Integer> scopeSizes;
+	private boolean isArg;
 
 	public BPLTypeChecker(String filename) throws BPLException {
 		this.parser = new BPLParser(filename);
@@ -25,6 +28,7 @@ public class BPLTypeChecker {
 		this.globalDecs = new HashMap<String, BPLNode>();
 		this.localDecs = new LinkedList<BPLNode>();
 		this.scopeSizes = new Stack<Integer>();
+		this.isArg = false;
 		this.typeCheck(this.parseTree);
 	}
 
@@ -298,7 +302,8 @@ public class BPLTypeChecker {
 
 		String type2 = this.evaluate(node.getChild(2));
 
-		if (type1.equals(this.TYPE_INT) && type1.equals(this.TYPE_INT)) {
+		if (type1.equals(this.TYPE_INT) && type2.equals(this.TYPE_INT) ||
+			(type1.equals(this.TYPE_INT) && type2.equals(this.TYPE_PTRINT))) {
 			return type1;
 		}
 		throw new BPLTypeCheckerException("Types do not match", node.getLineNumber());
@@ -313,21 +318,26 @@ public class BPLTypeChecker {
 			return fType;
 		}
 		String factorType = this.handleFactor(this.getFactor(f));
-		return this.checkForPointer(f, factorType);
+		return this.checkPointer(f, factorType);
 	}
 
-	private String checkForPointer(BPLNode f, String origFactorType) {
+	private String checkPointer(BPLNode f, String origFactorType) throws BPLException {
 		BPLNode child = f.getChild(0);
-		if (child.isType("FACTOR")) {
+		if ((origFactorType.equals(this.TYPE_INT) || origFactorType.equals(this.TYPE_STRING) || origFactorType.equals(this.TYPE_VOID))) {
 			return origFactorType;
-		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRINT)) {
+		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRINT) && !this.isArg) {
 			return this.TYPE_ADDINT;
 		} else if (child.isType("*") && origFactorType.equals(this.TYPE_PTRINT)) {
-			return this.TYPE_PTRINT;
-		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRSTRING)) {
+			return this.TYPE_INT;
+		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRSTRING) && !this.isArg) {
 			return this.TYPE_ADDSTRING;
-		} 
-		return this.TYPE_PTRSTRING;
+		} else if (child.isType("*") && origFactorType.equals(this.TYPE_PTRSTRING)) {
+			return this.TYPE_STRING;
+		} else if ((origFactorType.equals(this.TYPE_PTRINT) || origFactorType.equals(this.TYPE_PTRSTRING)) && this.isArg) {
+			return origFactorType;
+		}
+		throw new BPLTypeCheckerException("Incorrect pointer usage", f.getLineNumber());
+		
 	}
 
 	private BPLNode getFactor(BPLNode f) {
@@ -386,7 +396,9 @@ public class BPLTypeChecker {
 		} else if (argsChild.isType("<empty>") || paramsChild.isType("void")) {
 			throw new BPLTypeCheckerException("Arguments of " + id + " does not match declaration", funCall.getLineNumber());
 		}
+		this.isArg = true;
 		compareParamArgsHelper(paramsChild, argsChild, id);
+		this.isArg = false;
 	}
 
 	private void compareParamArgsHelper(BPLNode paramList, BPLNode argList, String id) throws BPLException {
