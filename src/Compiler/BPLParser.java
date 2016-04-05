@@ -448,9 +448,7 @@ public class BPLParser {
 			return node;
 		}
 		statement = this.statement();
-		BPLNode el = new BPLNode("ELSE_STMT", token.getLineNumber());
-		el.addChild(statement);
-		node.addChild(el);
+		node.addChild(statement);
 		return node;
 	}	
 

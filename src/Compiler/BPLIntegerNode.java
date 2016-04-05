@@ -14,6 +14,10 @@ public class BPLIntegerNode extends BPLNode {
 		this.lineNumber = lineNumber;
 	}
 
+	public int getInteger() {
+		return this.num;
+	}
+
 	@Override
 	public String toString() {
 		String rtn = "Line " + this.getLineNumber() + ": Integer " + num + "\n";

@@ -11,8 +11,6 @@ public class BPLTypeChecker {
 	private static final String TYPE_PTRSTRING = "pointer to string";
 	private static final String TYPE_ADDINT = "address of integer";
 	private static final String TYPE_ADDSTRING = "address of integer";
-	private static final String TYPE_INTARRAY = "array of integers";
-	private static final String TYPE_STRINGARRAY = "array of strings";
 
 	private final BPLParser parser;
 	
@@ -69,19 +67,15 @@ public class BPLTypeChecker {
 			throw new BPLTypeCheckerException("ID " + varName + " already declared globally");
 		}
 		this.checkVoid(decChild, varName);
-		this.printDebug("Adding VAR_DEC " + varName + " to global decs");
 		this.globalDecs.put(varName, decChild);
 	}
 
 	private void addFunToDecs(BPLNode funDec) throws BPLException {
 		this.currFunDec = funDec;
-/*		BPLNode idNode = funDec.getChild(1);
-		String id = ((BPLVarNode) idNode).getID();*/
 		String id = getFunDecID(funDec);
 		if (this.globalDecs.containsKey(id)) {
 			throw new BPLTypeCheckerException("ID " + id + " already declared globally");
 		}
-		this.printDebug("Adding FUN_DEC " + id + " to global decs");
 		this.globalDecs.put(id, funDec);
 	}
 
@@ -102,13 +96,7 @@ public class BPLTypeChecker {
 		this.handleCmpdStmt(funDec.getChild(3));
 
 		// clear localdecs (remove params)
-		// this.localDecs.clear();
-		// TODO: use while loop when still printing removal and addition of localdecs
-		while (!this.localDecs.isEmpty()) {
-			BPLNode polled = this.localDecs.poll();
-			String polledName = polled.getName();
-			this.printDebug("Removing PARAM " + polledName + " from local decs");
-		}
+		this.localDecs.clear();
 	}
 
 	private void addParamsToLocal(BPLNode params) throws BPLException {
@@ -130,7 +118,6 @@ public class BPLTypeChecker {
 
 		String name = id.getID();
 		param.setName(name);
-		this.printDebug("Adding PARAM " + param.getName() + " to local decs");
 		this.checkVoid(param, name);
 		this.localDecs.addFirst(paramList.getChild(0));
 
@@ -160,7 +147,6 @@ public class BPLTypeChecker {
 		String varName = getNameFromVarDec(varDec);
 		varDec.setName(varName);
 		this.checkVoid(varDec, varName);
-		this.printDebug("Adding VAR_DEC " + varName + " to local decs");
 		this.localDecs.addFirst(varDec);
 
 		return 1 + this.addLocalDecs(localDecs.getChild(1));
@@ -169,9 +155,7 @@ public class BPLTypeChecker {
 	private void removeLocalDecs() {
 		int localDecsSize = this.scopeSizes.peek();
 		for (int i = 0; i < localDecsSize; i++) {
-			BPLNode polled = this.localDecs.poll();
-			String polledName = polled.getName();
-			this.printDebug("Removing VAR_DEC " + polledName + " from local decs");
+			this.localDecs.poll();
 		}
 		this.scopeSizes.pop();
 	}
@@ -196,7 +180,7 @@ public class BPLTypeChecker {
 			this.findRefReturn(stmtChild);
 		} else if (stmtChild.isType("WRITE_STMT")) {
 			this.findRefWrite(stmtChild);
-		} else if (stmtChild.isType("EXPRESSION_STMT")) {
+		} else {
 			this.findRefExpStmt(stmtChild);
 		} 
 	}
@@ -208,8 +192,7 @@ public class BPLTypeChecker {
 		}
 		this.findRefStatement(ifNode.getChild(1));
 		if (ifNode.getChildrenSize() > 2) {
-			BPLNode el = ifNode.getChild(2);
-			this.findRefStatement(el.getChild(0));
+			this.findRefStatement(ifNode.getChild(2));
 		}
 	}
 
@@ -232,7 +215,6 @@ public class BPLTypeChecker {
 			return;
 		}
 		if (!expectedType.equals(this.TYPE_VOID)) {
-			System.out.println(id);
 			throw new BPLTypeCheckerException("Function " + id + " has return type " + expectedType, returnNode.getLineNumber());
 		}
 	}
@@ -241,7 +223,7 @@ public class BPLTypeChecker {
 		if (writeNode.getChildrenSize() > 0) {
 			String expType = this.findRefExpression(writeNode.getChild(0));
 			if (!(expType.equals(this.TYPE_INT) || expType.equals(this.TYPE_STRING))) {
-				throw new BPLTypeCheckerException("write can only accept type string or int as argument", writeNode.getLineNumber());
+				throw new BPLTypeCheckerException("write() can only accept type string or int as argument", writeNode.getLineNumber());
 			}
 		}
 	}
@@ -262,20 +244,20 @@ public class BPLTypeChecker {
 		String varName = this.getVarName(var);
 		BPLNode ref = this.getVarReference(var, varName);
 		String varType = this.linkVarRef(var, varName, ref);
+		varType = this.checkPointer(var, varType);
 
 		if (var.getChildrenSize() == 4) { // array assignment
-			this.findRefExpression(var.getChild(2));
+			String arrayIndexType = this.findRefExpression(var.getChild(2));
+			if (!arrayIndexType.equals(this.TYPE_INT)) {
+				throw new BPLTypeCheckerException("Arrays are indexed by integer types only", var.getChild(2).getLineNumber());
+			}
 		}
 
 		String expType = this.findRefExpression(expression.getChild(2));
 
 		if (varType.equals(expType) || 
 			(varType.equals(this.TYPE_PTRSTRING) && expType.equals(this.TYPE_ADDSTRING) && var.getChildrenSize() == 1) ||
-			(varType.equals(this.TYPE_PTRINT) && expType.equals(this.TYPE_ADDINT) && var.getChildrenSize() == 1) ||
-			(varType.equals(this.TYPE_INT) && expType.equals(this.TYPE_PTRINT)) ||
-			(varType.equals(this.TYPE_STRING) && expType.equals(this.TYPE_PTRSTRING)) ||
-			(varType.equals(this.TYPE_PTRSTRING) && expType.equals(this.TYPE_STRING) && var.getChildrenSize() == 2) ||
-			(varType.equals(this.TYPE_PTRINT) && expType.equals(this.TYPE_INT) && var.getChildrenSize() == 2)) {
+			(varType.equals(this.TYPE_PTRINT) && expType.equals(this.TYPE_ADDINT) && var.getChildrenSize() == 1)) {
 			return varType;
 		}
 		throw new BPLTypeCheckerException("Types do not match", expression.getLineNumber());
@@ -328,14 +310,19 @@ public class BPLTypeChecker {
 		if (node.getChildrenSize() == 1) {
 			return type1;
 		}
+		this.handleOp(node.getChild(1));
 
 		String type2 = this.evaluate(node.getChild(2));
 
-		if (type1.equals(this.TYPE_INT) && type2.equals(this.TYPE_INT) ||
-			(type1.equals(this.TYPE_INT) && type2.equals(this.TYPE_PTRINT))) {
+		if (type1.equals(this.TYPE_INT) && type2.equals(this.TYPE_INT)) {
 			return type1;
 		}
 		throw new BPLTypeCheckerException("Types do not match", node.getLineNumber());
+	}
+
+	private void handleOp(BPLNode opNode) {
+		String op = opNode.getChild(0).getType();
+		this.printDebug(op + " (op) node on line " + opNode.getLineNumber() + " assigned type " + this.TYPE_INT);
 	}
 
 	private String typeF(BPLNode f) throws BPLException {
@@ -352,17 +339,19 @@ public class BPLTypeChecker {
 
 	private String checkPointer(BPLNode f, String origFactorType) throws BPLException {
 		BPLNode child = f.getChild(0);
-		if ((origFactorType.equals(this.TYPE_INT) || origFactorType.equals(this.TYPE_STRING) || origFactorType.equals(this.TYPE_VOID))) {
-			return origFactorType;
-		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRINT) && !this.isArg) {
+		if (child.isType("&") && origFactorType.equals(this.TYPE_PTRINT)) {
 			return this.TYPE_ADDINT;
 		} else if (child.isType("*") && origFactorType.equals(this.TYPE_PTRINT)) {
 			return this.TYPE_INT;
-		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRSTRING) && !this.isArg) {
+		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRSTRING)) {
 			return this.TYPE_ADDSTRING;
 		} else if (child.isType("*") && origFactorType.equals(this.TYPE_PTRSTRING)) {
 			return this.TYPE_STRING;
-		} else if ((origFactorType.equals(this.TYPE_PTRINT) || origFactorType.equals(this.TYPE_PTRSTRING)) && this.isArg) {
+		} else if (origFactorType.equals(this.TYPE_PTRINT) || 
+			origFactorType.equals(this.TYPE_PTRSTRING) || 
+			origFactorType.equals(this.TYPE_INT) || 
+			origFactorType.equals(this.TYPE_STRING) || 
+			origFactorType.equals(this.TYPE_VOID)) {
 			return origFactorType;
 		}
 		throw new BPLTypeCheckerException("Incorrect pointer usage", f.getLineNumber());
@@ -385,7 +374,10 @@ public class BPLTypeChecker {
 			BPLNode ref = this.getVarReference(factChild, name);
 			String idType = this.linkVarRef(factChild, name, ref);
 			if (factor.getChildrenSize() > 1) { // array
-				this.findRefExpression(factor.getChild(2));
+				String arrayIndexType = this.findRefExpression(factor.getChild(2));
+				if (!arrayIndexType.equals(this.TYPE_INT)) {
+					throw new BPLTypeCheckerException("Arrays are indexed by integer types only", factor.getChild(2).getLineNumber());
+				}
 			}
 			return idType;
 		} else if (factChild.isType("EXPRESSION"))	{
@@ -393,9 +385,14 @@ public class BPLTypeChecker {
 		} else if (factChild.isType("FUN_CALL")) {
 			return this.getFunRef(factChild);
 		} else if (factChild.isType("STRING")) {
+			this.printDebug(factChild.getChild(0).getType() + " (string) node on line " + factChild.getLineNumber() + " assigned type " + this.TYPE_STRING);
 			return this.TYPE_STRING;
-		} 
-		// int or read()
+		} else if (factChild.isType("INTEGER")) {
+			this.printDebug(((BPLIntegerNode) factChild).getInteger() + " (integer) node on line " + factChild.getLineNumber() + " assigned type " + this.TYPE_INT);
+			return this.TYPE_INT;
+		}
+		// read()
+		this.printDebug("read() node on line" + factChild.getLineNumber() + " assigned type " + this.TYPE_INT);
 		return this.TYPE_INT;
 	}
 
@@ -413,7 +410,7 @@ public class BPLTypeChecker {
 		this.compareParamArgs(funRef, funCall, id);
 
 		String funType = this.getFunDecType(funRef);
-		this.printDebug("Function call " + id + " on line " + funCall.getLineNumber() + " assigned to type " + funType);
+		this.printDebug(id + " (function call) node on line " + funCall.getLineNumber() + " assigned to type " + funType);
 		return funType;
 	}
 
@@ -457,7 +454,7 @@ public class BPLTypeChecker {
 		node.setDeclaration(ref);
 		this.printDebug("Variable " + id + " on line " + node.getLineNumber() + " linked to declaration on line " + ref.getLineNumber());
 		String varType = this.getVarType(ref);
-		this.printDebug("id node " + id + " on line " + node.getLineNumber() + " assigned type " + varType);
+		this.printDebug(id + " (id node) on line " + node.getLineNumber() + " assigned type " + varType);
 		return varType;
 	}
 
