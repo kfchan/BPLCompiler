@@ -339,22 +339,19 @@ public class BPLTypeChecker {
 
 	private String checkPointer(BPLNode f, String origFactorType) throws BPLException {
 		BPLNode child = f.getChild(0);
-		if (child.isType("&") && origFactorType.equals(this.TYPE_PTRINT)) {
+		if (child.isType("&") && origFactorType.equals(this.TYPE_INT)) {
 			return this.TYPE_ADDINT;
 		} else if (child.isType("*") && origFactorType.equals(this.TYPE_PTRINT)) {
 			return this.TYPE_INT;
-		} else if (child.isType("&") && origFactorType.equals(this.TYPE_PTRSTRING)) {
+		} else if (child.isType("&") && origFactorType.equals(this.TYPE_STRING)) {
 			return this.TYPE_ADDSTRING;
 		} else if (child.isType("*") && origFactorType.equals(this.TYPE_PTRSTRING)) {
 			return this.TYPE_STRING;
-		} else if (origFactorType.equals(this.TYPE_PTRINT) || 
-			origFactorType.equals(this.TYPE_PTRSTRING) || 
-			origFactorType.equals(this.TYPE_INT) || 
-			origFactorType.equals(this.TYPE_STRING) || 
-			origFactorType.equals(this.TYPE_VOID)) {
-			return origFactorType;
+		} else if (child.isType("*") || child.isType("&")) {
+			throw new BPLTypeCheckerException("Incorrect pointer usage", f.getLineNumber());
 		}
-		throw new BPLTypeCheckerException("Incorrect pointer usage", f.getLineNumber());
+		return origFactorType;
+		
 		
 	}
 
