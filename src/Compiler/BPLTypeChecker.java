@@ -3,7 +3,7 @@ package Compiler;
 import java.util.*;
 
 public class BPLTypeChecker {
-	private static final boolean DEBUG = true;
+	private static final boolean DEBUG = false;
 	private static final String TYPE_VOID = "void";
 	private static final String TYPE_INT = "int";
 	private static final String TYPE_STRING = "string";
@@ -30,6 +30,10 @@ public class BPLTypeChecker {
 		this.isArg = false;
 		this.currFunDec = null;
 		this.typeCheck(this.parseTree);
+	}
+
+	public BPLNode getParseTreeHead() {
+		return this.parseTree;
 	}
 
 	private void typeCheck(BPLNode head) throws BPLException {

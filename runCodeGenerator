@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ $# -lt 1 ] # if there are fewer than 2 arguments
+then
+    echo "One file needed!"
+else
+	filename="../"$1".s"
+    cd bin
+	java Compiler.BPLCodeGenerator $1 > $filename
+fi
