@@ -4,13 +4,15 @@ import java.util.*;
 
 public class BPLTypeChecker {
 	private static final boolean DEBUG = false;
-	private static final String TYPE_VOID = "void";
-	private static final String TYPE_INT = "int";
-	private static final String TYPE_STRING = "string";
-	private static final String TYPE_PTRINT = "pointer to integer";
-	private static final String TYPE_PTRSTRING = "pointer to string";
-	private static final String TYPE_ADDINT = "address of integer";
-	private static final String TYPE_ADDSTRING = "address of integer";
+
+	public static final String TYPE_VOID = "void";
+	public static final String TYPE_INT = "int";
+	public static final String TYPE_STRING = "string";
+	public static final String TYPE_PTRINT = "pointer to integer";
+	public static final String TYPE_PTRSTRING = "pointer to string";
+	public static final String TYPE_ADDINT = "address of integer";
+	public static final String TYPE_ADDSTRING = "address of integer";
+	public static final String TYPE_NULL = "NULL";
 
 	private final BPLParser parser;
 	
@@ -20,6 +22,7 @@ public class BPLTypeChecker {
 	private LinkedList<BPLNode> localDecs; 
 	private Stack<Integer> scopeSizes;
 	private boolean isArg;
+	private ArrayList<String> strings;
 
 	public BPLTypeChecker(String filename) throws BPLException {
 		this.parser = new BPLParser(filename);
@@ -27,6 +30,7 @@ public class BPLTypeChecker {
 		this.globalDecs = new HashMap<String, BPLNode>();
 		this.localDecs = new LinkedList<BPLNode>();
 		this.scopeSizes = new Stack<Integer>();
+		this.strings = new ArrayList<String>();
 		this.isArg = false;
 		this.currFunDec = null;
 		this.typeCheck(this.parseTree);
@@ -34,6 +38,14 @@ public class BPLTypeChecker {
 
 	public BPLNode getParseTreeHead() {
 		return this.parseTree;
+	}
+
+	public HashMap<String, BPLNode> getGlobals() {
+		return this.globalDecs;
+	}
+
+	public ArrayList<String> getStrings() {
+		return this.strings;
 	}
 
 	private void typeCheck(BPLNode head) throws BPLException {
@@ -241,7 +253,9 @@ public class BPLTypeChecker {
 
 	private String findRefExpression(BPLNode expression) throws BPLException {
 		if (expression.getChildrenSize() == 1) { // compexp
-			return this.handleCompExp(expression.getChild(0));
+			String type = this.handleCompExp(expression.getChild(0));
+			expression.setEvalType(type);
+			return type;
 		}
 		// get reference of vars
 		BPLNode var = expression.getChild(0);
@@ -262,6 +276,7 @@ public class BPLTypeChecker {
 		if (varType.equals(expType) || 
 			(varType.equals(this.TYPE_PTRSTRING) && expType.equals(this.TYPE_ADDSTRING) && var.getChildrenSize() == 1) ||
 			(varType.equals(this.TYPE_PTRINT) && expType.equals(this.TYPE_ADDINT) && var.getChildrenSize() == 1)) {
+			expression.setEvalType(varType);
 			return varType;
 		}
 		throw new BPLTypeCheckerException("Types do not match", expression.getLineNumber());
@@ -355,8 +370,6 @@ public class BPLTypeChecker {
 			throw new BPLTypeCheckerException("Incorrect pointer usage", f.getLineNumber());
 		}
 		return origFactorType;
-		
-		
 	}
 
 	private BPLNode getFactor(BPLNode f) {
@@ -386,6 +399,7 @@ public class BPLTypeChecker {
 		} else if (factChild.isType("FUN_CALL")) {
 			return this.getFunRef(factChild);
 		} else if (factChild.isType("STRING")) {
+			this.addStringToSet(factChild);
 			this.printDebug(factChild.getChild(0).getType() + " (string) node on line " + factChild.getLineNumber() + " assigned type " + this.TYPE_STRING);
 			return this.TYPE_STRING;
 		} else if (factChild.isType("INTEGER")) {
@@ -395,6 +409,11 @@ public class BPLTypeChecker {
 		// read()
 		this.printDebug("read() node on line" + factChild.getLineNumber() + " assigned type " + this.TYPE_INT);
 		return this.TYPE_INT;
+	}
+
+	private void addStringToSet(BPLNode stringNode) {
+		BPLNode child = stringNode.getChild(0);
+		this.strings.add(child.getType());
 	}
 
 	private String getFunRef(BPLNode funCall) throws BPLException {
@@ -504,5 +523,7 @@ public class BPLTypeChecker {
 		}
 
 		BPLTypeChecker typeChecker = new BPLTypeChecker("../" + args[0]);
+		Collection<String> strings = typeChecker.getStrings();
+		System.out.println(strings.toString());
 	}
 }

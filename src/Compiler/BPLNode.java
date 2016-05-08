@@ -11,6 +11,9 @@ public class BPLNode {
 	private BPLNode parent;
 	private BPLNode declaration;
 	private String name;
+	private String evalType;
+	private int depth;
+	private int position;
 
 	public BPLNode(String type, int lineNumber) {
 		this.type = type;
@@ -18,6 +21,25 @@ public class BPLNode {
 		this.children = new ArrayList<BPLNode>();
 		this.declaration = null;
 		this.name = null;
+		this.evalType = null;
+		this.depth = -1;
+		this.position = -1;
+	}
+
+	public void assignDepth(int n) {
+		this.depth = n;
+	}
+
+	public int getDepth() {
+		return this.depth;
+	}
+
+	public void assignPosition(int n) {
+		this.position = n;
+	}
+
+	public int getPosition() {
+		return this.position;
 	}
 
 	public void setName(String n) {
@@ -51,6 +73,17 @@ public class BPLNode {
 
 	public BPLNode getDeclaration() {
 		return this.declaration;
+	}
+
+	public void setEvalType(String eType) {
+		this.evalType = eType;
+	}
+
+	public String getEvalType() {
+		if (this.evalType == null) {
+			return BPLTypeChecker.TYPE_NULL;
+		} 
+		return this.evalType;
 	}
 
 	public ArrayList<BPLNode> getChildren() {

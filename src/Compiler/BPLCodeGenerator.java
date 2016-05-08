@@ -6,23 +6,197 @@ import java.io.*;
 public class BPLCodeGenerator {
 	private BPLNode parseTreeHead;
 	private BPLTypeChecker typeChecker;
+	private HashMap<String, String> stringMap;
 
 	public BPLCodeGenerator(String fileName) throws FileNotFoundException, UnsupportedEncodingException, BPLException {
 		this.typeChecker = new BPLTypeChecker(fileName);
 		this.parseTreeHead = this.typeChecker.getParseTreeHead();
+		this.stringMap = new HashMap<String,String>();
 		this.generateCode();
 	}
 
 	private void generateCode() {
-		this.initializeCode();
+		if (this.parseTreeHead.getChildrenSize() == 0) {
+			return;
+		}
+		findDepthDeclaration(this.parseTreeHead.getChild(0));
 	}
 
-	private void initializeCode() {
+	private void findDepthDeclaration(BPLNode decList) {
+		this.handleGlobals(decList);
+		this.findDepthDeclaration(decList, 0, 0);
+	}
+
+	/**
+	* walks along a list of declarations
+	*/ 
+	private void findDepthDeclaration(BPLNode node, int level, int count) {
+		// for each variable it assigns the current value of count to the position attribute
+		// recurse onto the next node in the list with count_1
+		// for global, level = 0
+			// use the var as a label
+		// params, level = 1
+			// its offset from fp is 16 + 8(position)
+		// compound statments level++;
+			// offset from fp is -8 - 8(position)
+		if (level == 0) {
+			this.handleGlobalDepths(node, level, count);
+		} else if (level == 1) {
+			this.handleParams(node, level, count);
+		} else {
+			handleCompoundDepth(node, level, count);
+		}
+	}
+
+	private void handleCompoundDepth(BPLNode compStmt, int level, int count) {
+		BPLNode localDecNode = compStmt.getChild(0);
+		count = this.handleLocalDecDepths(localDecNode, level, count);
+		this.handleStatementListDepth(compStmt.getChild(1), level, count);
+	}
+
+	private void handleStatementListDepth(BPLNode stmtList, int level, int count) {
+		// System.out.println("statement list depths type : " + stmtList);
+		if (stmtList.isType("<empty>")) {
+			return;
+		}
+
+		this.handleStatementDepth(stmtList.getChild(0), level, count);
+		// this.handleStatement(stmtList.getChild(0).getChild(0), level, count);
+		this.handleStatementListDepth(stmtList.getChild(1), level, count);	
+	}
+
+	private void handleStatementDepth(BPLNode statementNode, int level, int count) {
+		// System.out.println("statementNode type:  " + statementNode.getType());
+
+		this.handleStatement(statementNode.getChild(0), level, count);
+	}
+
+	private void handleStatement(BPLNode statementChild, int level, int count) {
+		// System.out.println("statementChild type: " + statementChild.getType());
+		if (statementChild.isType("IF_STMT") || statementChild.isType("WHILE_STMT")) {
+			this.handleStatementDepth(statementChild.getChild(1), level, count);
+			if (statementChild.getChildrenSize() > 2) {
+				this.handleStatementDepth(statementChild.getChild(2), level, count);
+			}
+		} else if (statementChild.isType("COMPOUND_STMT")) {
+			this.handleCompoundDepth(statementChild, level + 1, count);
+		}
+	}
+
+	private int handleLocalDecDepths(BPLNode localDecNode, int level, int count) {
+		// System.out.println("localdec depths type: " + localDecNode.getType());		
+		if (localDecNode.isType("<empty>")) {
+			return count;
+		}
+
+		BPLNode varDec = localDecNode.getChild(0);
+
+		// System.out.println("localdec " + varDec.getName() + " " + level + " " + count);
+		varDec.assignDepth(level);
+		varDec.assignPosition(count);
+
+		return this.handleLocalDecDepths(localDecNode.getChild(1), level, count + 1);
+	}
+
+	private void handleGlobalDepths(BPLNode decList, int level, int count) {
+		BPLNode decNode = decList.getChild(0);
+		BPLNode decNodeChild = decNode.getChild(0);
+		if (decNodeChild.isType("VAR_DEC")) {
+			// System.out.println("global vardec " + decNodeChild.getName() + " " + level + " " + count);
+			decNodeChild.assignDepth(level);
+			decNodeChild.assignPosition(count);
+		} else {
+			// System.out.println("global fundec " + decNodeChild.getName() + " " + level + " " + count);
+			decNodeChild.assignDepth(level);
+			decNodeChild.assignPosition(count);
+			this.findDepthDeclaration(decNodeChild.getChild(2), level+1, count);
+			this.findDepthDeclaration(decNodeChild.getChild(3), level+2, count);
+		}
+
+		if (decList.getChildrenSize() > 1) {
+			findDepthDeclaration(decList.getChild(1), level, count);
+		}
+	}
+
+	private void handleParams(BPLNode params, int level, int count) {
+		if (!params.getChild(0).isType("void")) {
+			this.handleParamsList(params.getChild(0), level, count);
+		}
+	}
+
+	private void handleParamsList(BPLNode paramsList, int level, int count) {
+		BPLNode paramNode = paramsList.getChild(0);
+		// System.out.println("params " + paramNode.getName() + " " + level + " " + count);
+		paramNode.assignDepth(level);
+		paramNode.assignPosition(count);
+		if (paramsList.getChildrenSize() > 1) {
+			handleParamsList(paramsList.getChild(1), level, count+1);
+		}
+	}
+
+	private void handleGlobals(BPLNode decList) {
+		this.initializeGlobalVars(decList);
 		System.out.println(".section .rodata \n" + 
 			".WriteIntString: .string \"%d \" \n" + 
-			".WritelnString: .string \"\\n\" \n" + 
-			".text \n" + 
+			".WritelnString: .string \"\\n\"");
+
+		this.initializeStringConstants();
+
+		System.out.println(".text \n" + 
 			".globl main");
+	}	
+
+	private void initializeGlobalVars(BPLNode decList) {
+		HashMap<String, BPLNode> globals = this.typeChecker.getGlobals();
+
+		for (String varName : globals.keySet()) {
+			BPLNode node = globals.get(varName);
+			if (node.isType("VAR_DEC")) {
+				this.genGlobalVar(varName, node);
+			}
+		}
+	}
+
+	private void genGlobalVar(String name, BPLNode node) {
+		if (node.getChild(0).isType("*")) { // slip because i dunno pointers
+			return;
+		}
+		int spaceAl = 8;
+		// System.out.println(node.getChildrenSize());
+		if (node.getChildrenSize() == 5) { // TODO: why is the size 5..
+			BPLIntegerNode intNode = (BPLIntegerNode) node.getChild(3);
+			spaceAl *= intNode.getInteger();
+		}
+		System.out.println(".comm " + name + ", " + spaceAl + ", 32");
+	}
+
+	private void initializeStringConstants() {
+		ArrayList<String> strings = this.typeChecker.getStrings();
+		for (int i = 0; i < strings.size(); i++) {
+			String s = strings.get(i);
+			System.out.println(".Potato" + i + ": .string "  + s);
+			stringMap.put(s, ".Potato" + i);
+		}
+	}
+
+	/**
+	* walks along a list of statements
+	*/ 
+	private void findDepthStatement(BPLNode node, int level, int count) {
+		// recursive call to next lement in the list has same level and count
+		// the call changes when theres a compound statement with level + 1
+	}
+
+	private void genCodeStatement(BPLNode statementNode) {
+
+	}
+
+	private void genCodeExpression(BPLNode expNode) {
+
+	}
+
+	private void genCodeFunctionDec(BPLNode funDecNode) {
+
 	}
 
 	public static void main(String[] args) throws FileNotFoundException, UnsupportedEncodingException, BPLException {
@@ -31,6 +205,6 @@ public class BPLCodeGenerator {
 			System.exit(1);
 		}
 
-		BPLCodeGenerator typeChecker = new BPLCodeGenerator("../" + args[0]);
+		BPLCodeGenerator generator = new BPLCodeGenerator("../" + args[0]);
 	}
 }
