@@ -4,6 +4,14 @@ import java.util.*;
 import java.io.*;
 
 public class BPLCodeGenerator {
+	private final String fp = "%rbx";
+	private final String sp = "%rsp";
+	private final String gp = "%rdi";
+	private final String eax = "%eax";
+	private final String ac = "%rax";
+	private final String arg2 = "%rsi";
+	private final String arg2lower = "%esi";
+
 	private BPLNode parseTreeHead;
 	private BPLTypeChecker typeChecker;
 	private HashMap<String, String> stringMap;
@@ -12,10 +20,11 @@ public class BPLCodeGenerator {
 		this.typeChecker = new BPLTypeChecker(fileName);
 		this.parseTreeHead = this.typeChecker.getParseTreeHead();
 		this.stringMap = new HashMap<String,String>();
+		this.getDepthsAndHeader();
 		this.generateCode();
 	}
 
-	private void generateCode() {
+	private void getDepthsAndHeader() {
 		if (this.parseTreeHead.getChildrenSize() == 0) {
 			return;
 		}
@@ -136,14 +145,15 @@ public class BPLCodeGenerator {
 
 	private void handleGlobals(BPLNode decList) {
 		this.initializeGlobalVars(decList);
-		System.out.println(".section .rodata \n" + 
-			".WriteIntString: .string \"%d \" \n" + 
+		System.out.println(".section .rodata\n" + 
+			".WriteIntString: .string \"%d\"\n" + 
+			".WriteStringString: .string \"%s\"\n" + 
 			".WritelnString: .string \"\\n\"");
 
 		this.initializeStringConstants();
 
 		System.out.println(".text \n" + 
-			".globl main");
+			".globl main\n");
 	}	
 
 	private void initializeGlobalVars(BPLNode decList) {
@@ -158,7 +168,7 @@ public class BPLCodeGenerator {
 	}
 
 	private void genGlobalVar(String name, BPLNode node) {
-		if (node.getChild(0).isType("*")) { // slip because i dunno pointers
+		if (node.getChild(0).isType("*")) { // skip because i dunno pointers
 			return;
 		}
 		int spaceAl = 8;
@@ -179,16 +189,103 @@ public class BPLCodeGenerator {
 		}
 	}
 
-	/**
-	* walks along a list of statements
-	*/ 
-	private void findDepthStatement(BPLNode node, int level, int count) {
-		// recursive call to next lement in the list has same level and count
-		// the call changes when theres a compound statement with level + 1
+	private void generateCode() {
+		if (this.parseTreeHead.getChildrenSize() != 0) {
+			// System.out.println("generateCode");
+			this.genCodeDecList(this.parseTreeHead.getChild(0));
+		}
+	}
+
+	private void genCodeDecList(BPLNode decListNode) {
+		// TODO: only handles functions with no params or local decs
+		BPLNode decNode = decListNode.getChild(0);
+		if (decNode.getChild(0).isType("FUN_DEC")) {
+			// System.out.println("genCodeDecList FUN_DEC");
+			this.genCodeFunDec(decNode.getChild(0));
+		}
+		if (decListNode.getChildrenSize() > 1) {
+			this.genCodeDecList(decListNode.getChild(1));
+		}
+	}
+
+	private void genCodeFunDec(BPLNode funDecNode) {
+		BPLVarNode idNode = (BPLVarNode) funDecNode.getChild(1);
+		System.out.println(idNode.getID() + ":");
+
+		this.genCodeCompStatement(funDecNode.getChild(3));
+	}
+
+	private void genCodeCompStatement(BPLNode compStmtNode) {
+		this.genCodeLocalDecs(compStmtNode.getChild(0));
+		this.genCodeStatementList(compStmtNode.getChild(1));
+	}
+
+	private void genCodeLocalDecs(BPLNode localDecsNode) {
+
+	}
+
+	private void genCodeStatementList(BPLNode stmtListNode) {
+		// System.out.println("stmtList " + stmtListNode.getType());
+		if (stmtListNode.isType("<empty>")) {
+			return;
+		}
+
+		this.genCodeStatement(stmtListNode.getChild(0));
+		this.genCodeStatementList(stmtListNode.getChild(1));
 	}
 
 	private void genCodeStatement(BPLNode statementNode) {
+		BPLNode statementChildNode = statementNode.getChild(0);
 
+		if (statementChildNode.isType("WRITE_STMT")) {
+			this.genCodeWrite(statementChildNode);
+		}
+	}
+
+	private void genCodeWrite(BPLNode writeNode) {
+		String print = "$.WritelnString";
+		if (writeNode.getChildrenSize() > 0) {
+			this.genCodeWriteHelper(writeNode.getChild(0));
+			return;
+		}
+
+		this.genLineMovq(print, gp, "printf string = arg1");
+		this.genLineMovl("$0", eax, "clear return value");
+		System.out.println("\tcall printf \t\t# call printf");
+	}
+
+	private void genCodeWriteHelper(BPLNode writeExpNode) {
+		if (writeExpNode.getEvalType().equals(BPLTypeChecker.TYPE_STRING)) {
+			String s = this.getString(writeExpNode);
+			this.genLineMovq("$" + this.stringMap.get(s), ac, "putting string value into ac");
+			this.genLineMovq(ac, arg2, "putting string to print to arg2");
+			this.genLineMovq("$.WriteStringString", gp, "printf string to arg1");
+			this.genLineMovl("$0", eax, "clear return value");
+			System.out.println("\tcall printf \t\t# call printf");
+		} else if (writeExpNode.getEvalType().equals(BPLTypeChecker.TYPE_INT)) {
+			int i = this.getInteger(writeExpNode);
+			this.genLineMovq("$" + i, ac, "putting value into ac");
+			this.genLineMovl(eax, arg2lower, "putting value to print to arg2");
+			this.genLineMovq("$.WriteIntString", gp, "printf string to arg1");
+			this.genLineMovl("$0", eax, "clear return value");	
+			System.out.println("\tcall printf \t\t# call printf");		
+		}
+		// TODO: other types (pointers)
+	}
+
+	private String getString(BPLNode node) {
+		if (!node.isType("STRING")) {
+			return this.getString(node.getChild(0));
+		}
+		return node.getChild(0).getType();
+	}
+
+	private int getInteger(BPLNode node) {
+		if (!node.isType("INTEGER")) {
+			return this.getInteger(node.getChild(0));
+		}
+
+		return ((BPLIntegerNode) node).getInteger();
 	}
 
 	private void genCodeExpression(BPLNode expNode) {
@@ -197,6 +294,14 @@ public class BPLCodeGenerator {
 
 	private void genCodeFunctionDec(BPLNode funDecNode) {
 
+	}
+
+	private void genLineMovq(String firstArg, String secondArg, String comment) {
+		System.out.println("\tmovq " + firstArg + ", " + secondArg + "\t\t# " + comment);
+	}
+
+	private void genLineMovl(String firstArg, String secondArg, String comment) {
+		System.out.println("\tmovl " + firstArg + ", " + secondArg + "\t\t# " + comment);
 	}
 
 	public static void main(String[] args) throws FileNotFoundException, UnsupportedEncodingException, BPLException {

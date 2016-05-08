@@ -153,7 +153,6 @@ public class BPLParser {
 	* grammar rule for compound statement node
 	*/
 	private BPLNode funDec() throws BPLException {
-		boolean isMain = false;
 		BPLNode type = this.typeSpecifier();
 		this.checkForNextToken();
 		Token token = getNextToken();
