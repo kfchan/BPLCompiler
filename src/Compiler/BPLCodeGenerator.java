@@ -221,7 +221,7 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeLocalDecs(BPLNode localDecsNode) {
-
+		this.genLineMovq(sp, fp, "setup fp");
 	}
 
 	private void genCodeStatementList(BPLNode stmtListNode) {
@@ -239,7 +239,41 @@ public class BPLCodeGenerator {
 
 		if (statementChildNode.isType("WRITE_STMT")) {
 			this.genCodeWrite(statementChildNode);
+		} else if (statementChildNode.isType("EXPRESSION_STMT")) {
+			this.genCodeExpressionStmt(statementChildNode);
+		} else if (statementChildNode.isType("IF_STMT")) {
+			this.genCodeIfStatement(statementChildNode);
+		} else if (statementChildNode.isType("WHILE_STMT")) {
+			this.genCodeWhileStatement(statementChildNode);
+		} else if (statementChildNode.isType("RETURN_STMT")) {
+			this.genCodeReturnStatement(statementChildNode);
+		} else {
+			this.genCodeCompStatement(statementChildNode);
 		}
+	}
+
+	private void genCodeIfStatement(BPLNode ifNode) {
+		this.genCodeExpression(ifNode.getChild(0));
+
+		this.genCodeStatement(ifNode.getChild(1));
+
+		if (ifNode.getChildrenSize() > 2) {
+			this.genCodeStatement(ifNode.getChild(2));
+		}
+	}
+
+	private void genCodeWhileStatement(BPLNode whileNode) {
+		this.genCodeExpression(whileNode.getChild(0));
+
+		this.genCodeStatement(whileNode.getChild(1));
+	}
+
+	private void genCodeReturnStatement(BPLNode returnNode) {
+		if (returnNode.getChildrenSize() > 0) {
+			this.genCodeExpression(returnNode.getChild(0));
+		}
+
+		System.out.println("ret");
 	}
 
 	private void genCodeWrite(BPLNode writeNode) {
@@ -273,6 +307,26 @@ public class BPLCodeGenerator {
 		// TODO: other types (pointers)
 	}
 
+	private void genCodeExpressionStmt(BPLNode expStmtNode) {
+		if (expStmtNode.getChildrenSize() > 0) {
+			this.genCodeExpression(expStmtNode.getChild(0));
+		}
+	}
+
+	private void genCodeExpression(BPLNode expNode) {
+		if (expNode.isType("COMP_EXP")) {
+			this.genCodeCompExp(expNode);
+		} // o.w the expression is an assignment
+	}
+
+	private void genCodeCompExp(BPLNode expNode) {
+
+	}
+
+	private void genCodeAssignment(BPLNode expNode) {
+
+	}
+
 	private String getString(BPLNode node) {
 		if (!node.isType("STRING")) {
 			return this.getString(node.getChild(0));
@@ -286,14 +340,6 @@ public class BPLCodeGenerator {
 		}
 
 		return ((BPLIntegerNode) node).getInteger();
-	}
-
-	private void genCodeExpression(BPLNode expNode) {
-
-	}
-
-	private void genCodeFunctionDec(BPLNode funDecNode) {
-
 	}
 
 	private void genLineMovq(String firstArg, String secondArg, String comment) {
