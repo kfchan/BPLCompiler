@@ -4,14 +4,6 @@ import java.util.*;
 import java.io.*;
 
 public class BPLCodeGenerator {
-	private final String fp = "%rbx";
-	private final String sp = "%rsp";
-	private final String gp = "%rdi";
-	private final String eax = "%eax";
-	private final String ac = "%rax";
-	private final String arg2 = "%rsi";
-	private final String arg2lower = "%esi";
-
 	private BPLNode parseTreeHead;
 	private BPLTypeChecker typeChecker;
 	private HashMap<String, String> stringMap;
@@ -40,14 +32,6 @@ public class BPLCodeGenerator {
 	* walks along a list of declarations
 	*/ 
 	private void findDepthDeclaration(BPLNode node, int level, int count) {
-		// for each variable it assigns the current value of count to the position attribute
-		// recurse onto the next node in the list with count_1
-		// for global, level = 0
-			// use the var as a label
-		// params, level = 1
-			// its offset from fp is 16 + 8(position)
-		// compound statments level++;
-			// offset from fp is -8 - 8(position)
 		if (level == 0) {
 			this.handleGlobalDepths(node, level, count);
 		} else if (level == 1) {
@@ -221,7 +205,7 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeLocalDecs(BPLNode localDecsNode) {
-		this.genLineMovq(sp, fp, "setup fp");
+		this.print("movq %rsp, %rbx", "setup fp");
 	}
 
 	private void genCodeStatementList(BPLNode stmtListNode) {
@@ -283,28 +267,24 @@ public class BPLCodeGenerator {
 			return;
 		}
 
-		this.genLineMovq(print, gp, "printf string = arg1");
-		this.genLineMovl("$0", eax, "clear return value");
+		this.print("movq " + print + ", %rdi", "printf string = arg1");
+		this.print("movl $0, %eax", "clear return value");
 		System.out.println("\tcall printf \t\t# call printf");
 	}
 
 	private void genCodeWriteHelper(BPLNode writeExpNode) {
 		if (writeExpNode.getEvalType().equals(BPLTypeChecker.TYPE_STRING)) {
-			String s = this.getString(writeExpNode);
-			this.genLineMovq("$" + this.stringMap.get(s), ac, "putting string value into ac");
-			this.genLineMovq(ac, arg2, "putting string to print to arg2");
-			this.genLineMovq("$.WriteStringString", gp, "printf string to arg1");
-			this.genLineMovl("$0", eax, "clear return value");
-			System.out.println("\tcall printf \t\t# call printf");
+			this.genCodeExpression(writeExpNode);
+			this.print("movq %rax, %rsi", "putting string to print to arg2");
+			this.print("movq $.WriteStringString, %rdi", "printf string to arg1");
+			this.print("movl $0, %eax", "clear return value");
 		} else if (writeExpNode.getEvalType().equals(BPLTypeChecker.TYPE_INT)) {
-			int i = this.getInteger(writeExpNode);
-			this.genLineMovq("$" + i, ac, "putting value into ac");
-			this.genLineMovl(eax, arg2lower, "putting value to print to arg2");
-			this.genLineMovq("$.WriteIntString", gp, "printf string to arg1");
-			this.genLineMovl("$0", eax, "clear return value");	
-			System.out.println("\tcall printf \t\t# call printf");		
+			this.genCodeExpression(writeExpNode);
+			this.print("movl %eax, %esi", "putting value to print to arg2");
+			this.print("movq $.WriteIntString, %rdi", "printf string to arg1");
+			this.print("movl $0, %eax", "clear return value");
 		}
-		// TODO: other types (pointers)
+		this.print("call printf", "call printf");	
 	}
 
 	private void genCodeExpressionStmt(BPLNode expStmtNode) {
@@ -314,40 +294,78 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeExpression(BPLNode expNode) {
-		if (expNode.isType("COMP_EXP")) {
-			this.genCodeCompExp(expNode);
+		// System.out.println("expNode " + expNode.getType());
+		if (expNode.getChild(0).isType("COMP_EXP")) {
+			this.genCodeCompExp(expNode.getChild(0));
 		} // o.w the expression is an assignment
 	}
 
-	private void genCodeCompExp(BPLNode expNode) {
-
+	private void genCodeCompExp(BPLNode compExpNode) {
+		// System.out.println("compExpNode " + compExpNode.getType());
+		BPLNode eNode = compExpNode.getChild(0); // TODO: compExp for if/while nodes
+		this.genCodeENode(eNode);		
 	}
 
 	private void genCodeAssignment(BPLNode expNode) {
 
 	}
 
-	private String getString(BPLNode node) {
+	private String genCodeExpressionString(BPLNode node) {
 		if (!node.isType("STRING")) {
-			return this.getString(node.getChild(0));
+			return this.genCodeExpressionString(node.getChild(0));
 		}
 		return node.getChild(0).getType();
 	}
 
-	private int getInteger(BPLNode node) {
-		if (!node.isType("INTEGER")) {
-			return this.getInteger(node.getChild(0));
+	private void genCodeENode(BPLNode eNode) {
+		// System.out.println("eNode " + eNode.getType());
+		if (eNode.getChildrenSize() == 1) {
+			this.genCodeTNode(eNode.getChild(0));
+			return;
 		}
 
-		return ((BPLIntegerNode) node).getInteger();
+		genCodeENode(eNode.getChild(0));
+
+		genCodeTNode(eNode.getChild(2));
+	}	
+
+	private void genCodeTNode(BPLNode tNode) {
+		// System.out.println("tNode " + tNode.getType());
+		if (tNode.getChildrenSize() == 1) {
+			this.genCodeFNode(tNode.getChild(0));
+		}
 	}
 
-	private void genLineMovq(String firstArg, String secondArg, String comment) {
-		System.out.println("\tmovq " + firstArg + ", " + secondArg + "\t\t# " + comment);
+	private void genCodeFNode(BPLNode fNode) {
+		// System.out.println("fNode " + fNode.getType());
+		// TODO: -F, &Factor, *Factor
+		if (fNode.getChild(0).isType("FACTOR")) {
+			genCodeFactorNode(fNode.getChild(0));
+		}
 	}
 
-	private void genLineMovl(String firstArg, String secondArg, String comment) {
-		System.out.println("\tmovl " + firstArg + ", " + secondArg + "\t\t# " + comment);
+	private void genCodeFactorNode(BPLNode factorNode) {
+		// System.out.println("factorNode " + factorNode.getType());
+		BPLNode factorChild = factorNode.getChild(0);
+		if (factorChild.isType("EXPRESSION")) {
+		
+		} else if (factorChild.isType("FUN_CALL")) {
+
+		} else if (factorChild.isType("READ")) {
+
+		} else if (factorChild.isType("INTEGER")) {
+			int val = ((BPLIntegerNode) factorChild).getInteger();
+			this.print("movq $" + val + ", %rax", "putting value into ac");
+		} else if (factorChild.isType("STRING")) {
+			String s = factorChild.getChild(0).getType();
+			this.print("movq $" + this.stringMap.get(s) + ", %rax", "putting string value into ac");
+		} else { // if (factorChild.isType("id")) {
+	
+		}
+	}
+
+	private void print(String code, String comment) {
+		System.out.println("\t" + code + "\t\t# " + comment);
 	}
 
 	public static void main(String[] args) throws FileNotFoundException, UnsupportedEncodingException, BPLException {

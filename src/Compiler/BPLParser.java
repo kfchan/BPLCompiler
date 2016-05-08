@@ -708,9 +708,9 @@ public class BPLParser {
 		this.checkForNextToken();
 		Token token = this.getNextToken();
 		this.cacheToken();
-		if ((token.getType() != Token.T_PLUS) && (token.getType() != Token.T_MINUS)) {
+/*		if ((token.getType() != Token.T_PLUS) && (token.getType() != Token.T_MINUS)) {
 			return t;
-		}
+		}*/
 
 		BPLNode e = new BPLNode("E", token.getLineNumber());
 		e.addChild(t);
@@ -758,9 +758,9 @@ public class BPLParser {
 		this.checkForNextToken();
 		Token token = this.getNextToken();
 		this.cacheToken();
-		if ((token.getType() != Token.T_STAR) && (token.getType() != Token.T_BACKSLASH) && (token.getType() != Token.T_PERCENT)) {
+/*		if ((token.getType() != Token.T_STAR) && (token.getType() != Token.T_BACKSLASH) && (token.getType() != Token.T_PERCENT)) {
 			return f;
-		}
+		}*/
 
 		BPLNode t = new BPLNode("T", token.getLineNumber());
 		t.addChild(f);
