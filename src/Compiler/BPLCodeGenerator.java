@@ -7,11 +7,13 @@ public class BPLCodeGenerator {
 	private BPLNode parseTreeHead;
 	private BPLTypeChecker typeChecker;
 	private HashMap<String, String> stringMap;
+	private int labelNum;
 
 	public BPLCodeGenerator(String fileName) throws FileNotFoundException, UnsupportedEncodingException, BPLException {
 		this.typeChecker = new BPLTypeChecker(fileName);
 		this.parseTreeHead = this.typeChecker.getParseTreeHead();
 		this.stringMap = new HashMap<String,String>();
+		this.labelNum = 0;
 		this.getDepthsAndHeader();
 		this.generateCode();
 	}
@@ -54,7 +56,6 @@ public class BPLCodeGenerator {
 		}
 
 		this.handleStatementDepth(stmtList.getChild(0), level, count);
-		// this.handleStatement(stmtList.getChild(0).getChild(0), level, count);
 		this.handleStatementListDepth(stmtList.getChild(1), level, count);	
 	}
 
@@ -196,19 +197,48 @@ public class BPLCodeGenerator {
 		BPLVarNode idNode = (BPLVarNode) funDecNode.getChild(1);
 		System.out.println(idNode.getID() + ":");
 
-		this.genCodeCompStatement(funDecNode.getChild(3));
-		// TODO: change 0 to the actual space allocated
-		this.print("add $0, %rsp", "deallocate local variables");
+		int space = this.genCodeCompStatement(funDecNode.getChild(3));
 		this.print("ret");
 	}
 
-	private void genCodeCompStatement(BPLNode compStmtNode) {
-		this.genCodeLocalDecs(compStmtNode.getChild(0));
+	private int genCodeCompStatement(BPLNode compStmtNode) {
+		int space = this.genCodeLocalDecs(compStmtNode.getChild(0));
 		this.genCodeStatementList(compStmtNode.getChild(1));
+		this.print("add $" + space + ", %rsp", "deallocate local variables");
+		return space;
 	}
 
-	private void genCodeLocalDecs(BPLNode localDecsNode) {
+	private int genCodeLocalDecs(BPLNode localDecsNode) {
 		this.print("movq %rsp, %rbx", "setup fp");
+
+		// System.out.println(localDecsNode.getType());
+		int space = 0;
+		if (!localDecsNode.isType("<empty>")) {
+			space = this.getSpaceLocalDecs(localDecsNode);
+			this.print("sub $" + space + ", %rsp", "allocate local variables"); // sub $16, %rsp
+		}
+		return space;
+	}
+
+	private int getSpaceLocalDecs(BPLNode localDecsNode) {
+		if (localDecsNode.getType().equals("<empty>")) {
+			return 0;
+		}
+
+		BPLNode varDecNode = localDecsNode.getChild(0);
+
+		int rtn;
+		if (varDecNode.getChildrenSize() == 2) {
+			rtn = 8;
+		} else if (varDecNode.getChildrenSize() == 3) {
+			// TODO
+			rtn = 8;
+		} else {
+			int size = ((BPLIntegerNode) varDecNode.getChild(3)).getInteger();
+			rtn = (8 * size);
+		}
+
+		return this.getSpaceLocalDecs(localDecsNode.getChild(1)) + rtn;
 	}
 
 	private void genCodeStatementList(BPLNode stmtListNode) {
@@ -241,21 +271,38 @@ public class BPLCodeGenerator {
 
 	private void genCodeIfStatement(BPLNode ifNode) {
 		this.genCodeExpression(ifNode.getChild(0));
-
+		this.print("cmpl $0, %eax", "if statement");
+		int label1 = this.labelNum;
+		this.labelNum++;
+		int label2 = this.labelNum;
+		this.labelNum++;
+		this.print("je .Meow" + label1);
 		this.genCodeStatement(ifNode.getChild(1));
+		this.print("jmp .Meow" + label2);
+		System.out.println(".Meow" + label1 + ":");
 
 		if (ifNode.getChildrenSize() > 2) {
 			this.genCodeStatement(ifNode.getChild(2));
+			System.out.println(".Meow" + label2 + ":");
 		}
 	}
 
 	private void genCodeWhileStatement(BPLNode whileNode) {
+		int label1 = this.labelNum;
+		this.labelNum++;
+		int label2 = this.labelNum;
+		this.labelNum++;		
+		System.out.println(".Meow" + label1 + ":");
 		this.genCodeExpression(whileNode.getChild(0));
-
+		this.print("cmpl $0, %eax", "while statement");
+		this.print("je .Meow" + label2);
 		this.genCodeStatement(whileNode.getChild(1));
+		this.print("jmp .Meow" + label1);
+		System.out.println(".Meow" + label2 + ":");
 	}
 
 	private void genCodeReturnStatement(BPLNode returnNode) {
+		this.print("movq %rbx, %rsp", "return");
 		if (returnNode.getChildrenSize() > 0) {
 			this.genCodeExpression(returnNode.getChild(0));
 		}
@@ -279,7 +326,8 @@ public class BPLCodeGenerator {
 		if (writeExpNode.getEvalType().equals(BPLTypeChecker.TYPE_STRING)) {
 			this.genCodeExpression(writeExpNode);
 			this.print("movq %rax, %rsi", "putting string to print to arg2");
-			this.print("movq $.WriteStringString, %rdi", "printf string to arg1");		} else if (writeExpNode.getEvalType().equals(BPLTypeChecker.TYPE_INT)) {
+			this.print("movq $.WriteStringString, %rdi", "printf string to arg1");		
+		} else if (writeExpNode.getEvalType().equals(BPLTypeChecker.TYPE_INT)) {
 			this.genCodeExpression(writeExpNode);
 			this.print("movl %eax, %esi", "putting value to print to arg2");
 			this.print("movq $.WriteIntString, %rdi", "printf string to arg1");
@@ -299,18 +347,44 @@ public class BPLCodeGenerator {
 		if (expNode.getChild(0).isType("COMP_EXP")) {
 			this.genCodeCompExp(expNode.getChild(0));
 		} else {
-			// o.w the expression is an assignment
 			this.genCodeAssignment(expNode);
 		}
 	}
 
 	private void genCodeCompExp(BPLNode compExpNode) {
 		// System.out.println("compExpNode " + compExpNode.getType());	
+		this.genCodeENode(compExpNode.getChild(0));
 		if (compExpNode.getChildrenSize() == 1) {
-			this.genCodeENode(compExpNode.getChild(0));
+			return;
 		}
 
-		// TODO
+		this.print("push %rax", "comparison");
+		this.genCodeENode(compExpNode.getChild(2));
+		BPLNode relop = compExpNode.getChild(1);
+		this.print("cmpl %eax, 0(%rsp)");
+		int label1 = this.labelNum;
+		this.labelNum++;
+		if (relop.getChild(0).isType("==")) {
+			this.print("je .Meow" + label1, "==");
+		} else if (relop.getChild(0).isType("<")) {
+			this.print("jl .Meow" + label1, "<");
+		} else if (relop.getChild(0).isType(">")) {
+			this.print("jg .Meow" + label1, ">");
+		} else if (relop.getChild(0).isType("<=")) {
+			this.print("jle .Meow" + label1, "<=");
+		} else if (relop.getChild(0).isType(">=")) {
+			this.print("jge .Meow" + label1, ">=");
+		} else if (relop.getChild(0).isType("!=")) {
+			this.print("jne .Meow" + label1, "!=");
+		}
+		int label2 = this.labelNum;
+		this.labelNum++;
+		this.print("movl $0, %eax");
+		this.print("jmp .Meow" + label2);
+		System.out.println(".Meow" + label1 + ":");
+		this.print("movl $1, %eax");
+		System.out.println(".Meow" + label2 + ":");
+		this.print("addq $8, %rsp", "restore stack");
 	}
 
 	private void genCodeAssignment(BPLNode expNode) {
@@ -318,23 +392,21 @@ public class BPLCodeGenerator {
 		BPLNode varDec = var.getDeclaration();
 
 		// System.out.println(var.getType());
-		String id = ((BPLVarNode) var.getChild(0)).getID();
+		BPLNode idNode = var.getChild(0); // TODO: arrays and pointers
+		String id = ((BPLVarNode) idNode).getID();
 
 		this.genCodeExpression(expNode.getChild(2));
 
+		int position = varDec.getPosition();
 		if (varDec.getDepth() == 0) {
-
 			this.print("movq %rax, " + id);
+		} else if (varDec.getDepth() == 1) {
+			position = 16 + 8 * position;
+			this.print("movq %rax, " + position + "(%rbx)", "assignment to var " + id);
 		} else {
-
+			position = -8 - 8 * position;
+			this.print("movq %rax, " + position + "(%rbx)", "assignment to var " + id);
 		}
-	}
-
-	private String genCodeExpressionString(BPLNode node) {
-		if (!node.isType("STRING")) {
-			return this.genCodeExpressionString(node.getChild(0));
-		}
-		return node.getChild(0).getType();
 	}
 
 	private void genCodeENode(BPLNode eNode) {
@@ -393,9 +465,9 @@ public class BPLCodeGenerator {
 			this.genCodeFNode(fNode.getChild(1));
 			this.print("neg %eax");
 		} else if (fChild.isType("*")) {
-			// TODO:
+			// TODO: pointer
 		} else {
-			// TODO:
+			// TODO: dereference 
 		}
 	}
 
@@ -420,12 +492,17 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeFactorID(BPLNode factorID) {
-		// TODO: locals
-
 		BPLNode varDec = factorID.getChild(0).getDeclaration();
 		String id = ((BPLVarNode) factorID.getChild(0)).getID();
+		int position = varDec.getPosition();
 		if (varDec.getDepth() == 0) {
 			this.print("movq " + id + ", %rax");
+		} else if (varDec.getDepth() == 1) {
+			position = 16 + 8 * position;
+			this.print("movq " + position + "(%rbx), %rax", "param to ac");
+		} else {
+			position = -8 - 8 * position;
+			this.print("movq " + position + "(%rbx), %rax", "variable to ac");
 		}
 	}
 
@@ -444,7 +521,6 @@ public class BPLCodeGenerator {
 		this.print("pop %rbx");
 
 		if (args.getChild(0).isType("ARG_LIST")) {
-			// TODO: change 8 to be the actual space of args in stack
 			this.print("add $" + space + ", %rsp", "removing args from the stack");
 		}
 	}
@@ -454,11 +530,10 @@ public class BPLCodeGenerator {
 		this.print("push %rax");
 
 		if (argList.getChildrenSize() > 1) {
-			// recusive call
 			spaceAl = genCodeFunCallArgs(argList.getChild(1), spaceAl);
 		}
 
-		// TODO: the 8 will probably change?
+		// TODO: the 8 will probably change? arrays and pointers to come
 		return spaceAl + 8;
 	}
 
