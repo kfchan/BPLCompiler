@@ -196,6 +196,7 @@ public class BPLCodeGenerator {
 	private void genCodeFunDec(BPLNode funDecNode) {
 		BPLVarNode idNode = (BPLVarNode) funDecNode.getChild(1);
 		System.out.println(idNode.getID() + ":");
+		this.print("movq %rsp, %rbx", "setup fp");
 
 		int space = this.genCodeCompStatement(funDecNode.getChild(3));
 		this.print("ret");
@@ -204,18 +205,16 @@ public class BPLCodeGenerator {
 	private int genCodeCompStatement(BPLNode compStmtNode) {
 		int space = this.genCodeLocalDecs(compStmtNode.getChild(0));
 		this.genCodeStatementList(compStmtNode.getChild(1));
-		this.print("add $" + space + ", %rsp", "deallocate local variables");
+		this.print("addq $" + space + ", %rsp", "deallocate local variables");
 		return space;
 	}
 
 	private int genCodeLocalDecs(BPLNode localDecsNode) {
-		this.print("movq %rsp, %rbx", "setup fp");
-
 		// System.out.println(localDecsNode.getType());
 		int space = 0;
 		if (!localDecsNode.isType("<empty>")) {
 			space = this.getSpaceLocalDecs(localDecsNode);
-			this.print("sub $" + space + ", %rsp", "allocate local variables"); // sub $16, %rsp
+			this.print("subq $" + space + ", %rsp", "allocate local variables"); // sub $16, %rsp
 		}
 		return space;
 	}
@@ -228,12 +227,12 @@ public class BPLCodeGenerator {
 		BPLNode varDecNode = localDecsNode.getChild(0);
 
 		int rtn;
-		if (varDecNode.getChildrenSize() == 2) {
+		if (varDecNode.getChildrenSize() == 2) { // int or string
 			rtn = 8;
-		} else if (varDecNode.getChildrenSize() == 3) {
+		} else if (varDecNode.getChildrenSize() == 3) { // pointer
 			// TODO
 			rtn = 8;
-		} else {
+		} else { // array
 			int size = ((BPLIntegerNode) varDecNode.getChild(3)).getInteger();
 			rtn = (8 * size);
 		}
@@ -307,7 +306,7 @@ public class BPLCodeGenerator {
 			this.genCodeExpression(returnNode.getChild(0));
 		}
 
-		System.out.println("ret");
+		this.print("ret");
 	}
 
 	private void genCodeWrite(BPLNode writeNode) {
@@ -514,24 +513,22 @@ public class BPLCodeGenerator {
 
 		int space = 0;
 		if (args.getChild(0).isType("ARG_LIST")) {
-			space = this.genCodeFunCallArgs(args.getChild(0), 0);
+			space = this.genCodeFunCallArgs(args.getChild(0));
 		}
 		this.print("push %rbx", "push frame pointer");
 		this.print("call " + id);
 		this.print("pop %rbx");
-
-		if (args.getChild(0).isType("ARG_LIST")) {
-			this.print("add $" + space + ", %rsp", "removing args from the stack");
-		}
+		this.print("addq $" + space + ", %rsp", "removing args from the stack");
 	}
 
-	private int genCodeFunCallArgs(BPLNode argList, int spaceAl) {
-		this.genCodeExpression(argList.getChild(0));
-		this.print("push %rax");
-
+	private int genCodeFunCallArgs(BPLNode argList) {
+		int spaceAl = 0;
 		if (argList.getChildrenSize() > 1) {
-			spaceAl = genCodeFunCallArgs(argList.getChild(1), spaceAl);
+			spaceAl = genCodeFunCallArgs(argList.getChild(1));
 		}
+
+		this.genCodeExpression(argList.getChild(0));
+		this.print("push %rax", "push argument");
 
 		// TODO: the 8 will probably change? arrays and pointers to come
 		return spaceAl + 8;
