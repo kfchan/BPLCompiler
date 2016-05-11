@@ -8,6 +8,8 @@ public class BPLTypeChecker {
 	public static final String TYPE_VOID = "void";
 	public static final String TYPE_INT = "int";
 	public static final String TYPE_STRING = "string";
+	public static final String TYPE_INTA = "int array";
+	public static final String TYPE_STRINGA = "string array";
 	public static final String TYPE_PTRINT = "pointer to integer";
 	public static final String TYPE_PTRSTRING = "pointer to string";
 	public static final String TYPE_ADDINT = "address of integer";
@@ -264,7 +266,13 @@ public class BPLTypeChecker {
 		String varType = this.linkVarRef(var, varName, ref);
 		varType = this.checkPointer(var, varType);
 
-		if (var.getChildrenSize() == 4) { // array assignment
+		if (var.getChildrenSize() == 4) { // array entry assignment
+			if (varType == this.TYPE_INTA) {
+				varType = this.TYPE_INT;
+			} else if (varType == this.TYPE_STRINGA) {
+				varType = this.TYPE_STRING;
+			}
+
 			String arrayIndexType = this.findRefExpression(var.getChild(2));
 			if (!arrayIndexType.equals(this.TYPE_INT)) {
 				throw new BPLTypeCheckerException("Arrays are indexed by integer types only", var.getChild(2).getLineNumber());
@@ -387,7 +395,13 @@ public class BPLTypeChecker {
 			String name = ((BPLVarNode) factChild).getID();
 			BPLNode ref = this.getVarReference(factChild, name);
 			String idType = this.linkVarRef(factChild, name, ref);
-			if (factor.getChildrenSize() > 1) { // array
+			if (factor.getChildrenSize() > 1) { // array entry
+				if (idType == this.TYPE_INTA) {
+					idType = this.TYPE_INT;
+				} else if (idType == this.TYPE_STRINGA) {
+					idType = this.TYPE_STRING;
+				}
+
 				String arrayIndexType = this.findRefExpression(factor.getChild(2));
 				if (!arrayIndexType.equals(this.TYPE_INT)) {
 					throw new BPLTypeCheckerException("Arrays are indexed by integer types only", factor.getChild(2).getLineNumber());
@@ -485,6 +499,10 @@ public class BPLTypeChecker {
 			return this.TYPE_PTRINT;
 		} else if (typeSpec.isType("string") && child1.isType("*")) {
 			return this.TYPE_PTRSTRING;
+		} else if (typeSpec.isType("int") && ref.getChildrenSize() > 2 && !ref.isType("FUN_DEC")) {
+			return this.TYPE_INTA;
+		} else if (typeSpec.isType("string") && ref.getChildrenSize() > 2 && !ref.isType("FUN_DEC")) {
+			return this.TYPE_STRINGA;
 		} else if (typeSpec.isType("int")) {
 			return this.TYPE_INT;
 		} else if (typeSpec.isType("void")) {
@@ -524,6 +542,5 @@ public class BPLTypeChecker {
 
 		BPLTypeChecker typeChecker = new BPLTypeChecker("../" + args[0]);
 		Collection<String> strings = typeChecker.getStrings();
-		System.out.println(strings.toString());
 	}
 }
