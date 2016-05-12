@@ -85,11 +85,24 @@ public class BPLCodeGenerator {
 
 		BPLNode varDec = localDecNode.getChild(0);
 
-		// System.out.println("localdec " + varDec.getName() + " " + level + " " + count);
 		varDec.assignDepth(level);
+		int arraySize = this.getPosition(localDecNode.getChild(0));
+		count += arraySize;
 		varDec.assignPosition(count);
+		// System.out.println("localdec " + varDec.getName() + " " + level + " " + count);		
 
 		return this.handleLocalDecDepths(localDecNode.getChild(1), level, count + 1);
+	}
+
+	private int getPosition(BPLNode varNode) {
+		int rtn = 0;
+
+		if (varNode.getChildrenSize() > 3) {
+			BPLIntegerNode size = (BPLIntegerNode) varNode.getChild(3);
+			rtn += size.getInteger() - 1;
+		}
+
+		return rtn;
 	}
 
 	private void handleGlobalDepths(BPLNode decList, int level, int count) {
@@ -391,7 +404,7 @@ public class BPLCodeGenerator {
 		BPLNode varDec = var.getDeclaration();
 
 		// System.out.println(var.getType());
-		BPLNode idNode = var.getChild(0); // TODO: arrays and pointers
+		BPLNode idNode = var.getChild(0); 
 		String id = ((BPLVarNode) idNode).getID();
 
 		this.genCodeExpression(expNode.getChild(2));
@@ -406,7 +419,7 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeAssignmentGlobals(BPLNode varNode, BPLNode varDecNode, String id) {
-		if (varDecNode.getChildrenSize() == 5) {
+		if (varDecNode.getChildrenSize() == 5) { // array
 			this.print("push %rax");
 			this.genCodeExpression(varNode.getChild(2));
 			this.print("imul $8, %eax");
@@ -421,15 +434,16 @@ public class BPLCodeGenerator {
 
 	private void genCodeAssignmentParams(BPLNode varNode, BPLNode varDecNode, String id) {
 		int position = 16 + 8 * varDecNode.getPosition();
-		if (varDecNode.getChildrenSize() == 5) {
+		if (varDecNode.getChildrenSize() > 3) { // array
 			this.print("push %rax");
+			this.print("movq " + position + "(%rbx), %rdi");
+			this.print("push %rdi");
 			this.genCodeExpression(varNode.getChild(2));
-			this.print("imul $8, %eax");
-			this.print("addq %rbx, %rax");
-			this.print("addq $" + position + ",%rax");
-			this.print("movq %rax, %rdx");
-			this.print("pop %rax");
-			this.print("movq %rax, 0(%rdx)", "assign val to param array " + id);
+			this.print("imul $8, %rax");
+			this.print("pop %rdi");
+			this.print("addq %rdi, %rax");
+			this.print("pop %rdi");
+			this.print("movq %rdi, 0(%rax)", "assign val to param array " + id);
 		} else {
 			this.print("movq %rax, " + position + "(%rbx)", "assignment to param " + id);
 		}
@@ -437,15 +451,16 @@ public class BPLCodeGenerator {
 
 		private void genCodeAssignmentLocals(BPLNode varNode, BPLNode varDecNode, String id) {
 		int position = -8 - 8 * varDecNode.getPosition();
-		if (varDecNode.getChildrenSize() == 5) {
+		if (varDecNode.getChildrenSize() == 5) { // array
 			this.print("push %rax");
+			this.print("leaq " + position + "(%rbx), %rdi");
+			this.print("push %rdi");
 			this.genCodeExpression(varNode.getChild(2));
-			this.print("imul $8, %eax");
-			this.print("addq %rbx, %rax");
-			this.print("addq $" + position + ",%rax");
-			this.print("movq %rax, %rdx");
-			this.print("pop %rax");
-			this.print("movq %rax, 0(%rdx)", "assign val to local array " + id);
+			this.print("imul $8, %rax");
+			this.print("pop %rdi");
+			this.print("addq %rdi, %rax");
+			this.print("pop %rdi");
+			this.print("movq %rdi, 0(%rax)", "assign val to local array " + id);
 		} else {
 			this.print("movq %rax, " + position + "(%rbx)", "assignment to local var " + id);
 		}
@@ -499,7 +514,6 @@ public class BPLCodeGenerator {
 
 	private void genCodeFNode(BPLNode fNode) {
 		//  System.out.println("fNode " + fNode.getType());
-		// TODO: -F, &Factor, *Factor
 		BPLNode fChild = fNode.getChild(0);
 		if (fChild.isType("FACTOR")) {
 			genCodeFactorNode(fNode.getChild(0));
@@ -507,7 +521,9 @@ public class BPLCodeGenerator {
 			this.genCodeFNode(fNode.getChild(1));
 			this.print("neg %eax");
 		} else if (fChild.isType("*")) {
-			// TODO: pointer
+			// TODO: test this
+			this.genCodeFNode(fNode.getChild(1));
+			this.print("movl 0(%rax), %rax", "dereference pointer");
 		} else {
 			// TODO: dereference 
 		}
@@ -546,7 +562,7 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeFactorGlobals(BPLNode factorNode, BPLNode varDecNode, String id) {
-		if (varDecNode.getChildrenSize() == 5) {
+		if (varDecNode.getChildrenSize() == 5 && factorNode.getChildrenSize() >= 2) {
 			this.genCodeExpression(factorNode.getChild(2));
 			this.print("imul $8, %eax");
 			this.print("addq $" + id + ", %rax");
@@ -559,12 +575,14 @@ public class BPLCodeGenerator {
 	private void genCodeFactorParams(BPLNode factorNode, BPLNode varDecNode, String id) {
 		int position = 16 + 8 * varDecNode.getPosition();
 
-		if (varDecNode.getChildrenSize() == 5) { // array
+		if (varDecNode.getChildrenSize() > 3 && factorNode.getChildrenSize() >= 2) { // array
+			this.print("movq " + position + "(%rbx), %rdi");
+			this.print("push %rdi");
 			this.genCodeExpression(factorNode.getChild(2));
-			this.print("imul $8, %eax");
-			this.print("addq %rbx, %rax");
-			this.print("addq $" + position + ", %rax");
-			this.print("movq 0(%rax), %rax", "param array entry to ac");
+			this.print("imul $8, %rax");
+			this.print("pop %rdi");
+			this.print("addq %rdi, %rax");
+			this.print("movq 0(%rax), %rax", "local array " + id + " entry to ac");
 		} else {
 			this.print("movq " + position + "(%rbx), %rax", "param " + id + " to ac");
 		}
@@ -573,12 +591,16 @@ public class BPLCodeGenerator {
 	private void genCodeFactorLocal(BPLNode factorNode, BPLNode varDecNode, String id) {
 		int position = -8 - 8 * varDecNode.getPosition();
 
-		if (varDecNode.getChildrenSize() == 5) { // array
+		if (varDecNode.getChildrenSize() == 5 && factorNode.getChildrenSize() >= 2) { // array
+			this.print("leaq " + position + "(%rbx), %rdi");
+			this.print("push %rdi");
 			this.genCodeExpression(factorNode.getChild(2));
-			this.print("imul $8, %eax");
-			this.print("addq %rbx, %rax");
-			this.print("addq $" + position + ", %rax");
-			this.print("movq 0(%rax), %rax", "local array entry to ac");
+			this.print("imul $8, %rax");
+			this.print("pop %rdi");
+			this.print("addq %rdi, %rax");
+			this.print("movq 0(%rax), %rax", "local array " + id + " entry to ac");
+		} else if (varDecNode.getChildrenSize() == 5) {
+			this.print("leaq " + position + "(%rbx), %rax");
 		} else {
 			this.print("movq " + position + "(%rbx), %rax", "local " + id + " to ac");
 		}
@@ -606,10 +628,11 @@ public class BPLCodeGenerator {
 			spaceAl = genCodeFunCallArgs(argList.getChild(1));
 		}
 
-		this.genCodeExpression(argList.getChild(0));
+		BPLNode exp = argList.getChild(0);
+
+		this.genCodeExpression(exp);
 		this.print("push %rax", "push argument");
 
-		// TODO: the 8 will probably change? arrays and pointers to come
 		return spaceAl + 8;
 	}
 

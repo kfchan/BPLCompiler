@@ -281,6 +281,10 @@ public class BPLTypeChecker {
 
 		String expType = this.findRefExpression(expression.getChild(2));
 
+		if (varType.equals(this.TYPE_STRINGA) || varType.equals(this.TYPE_INTA)) {
+			throw new BPLTypeCheckerException("Cannot do array assignment", expression.getLineNumber());
+		}
+
 		if (varType.equals(expType) || 
 			(varType.equals(this.TYPE_PTRSTRING) && expType.equals(this.TYPE_ADDSTRING) && var.getChildrenSize() == 1) ||
 			(varType.equals(this.TYPE_PTRINT) && expType.equals(this.TYPE_ADDINT) && var.getChildrenSize() == 1)) {
