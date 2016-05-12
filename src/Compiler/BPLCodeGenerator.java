@@ -295,8 +295,9 @@ public class BPLCodeGenerator {
 
 		if (ifNode.getChildrenSize() > 2) {
 			this.genCodeStatement(ifNode.getChild(2));
-			System.out.println(".Meow" + label2 + ":");
 		}
+
+		System.out.println(".Meow" + label2 + ":");
 	}
 
 	private void genCodeWhileStatement(BPLNode whileNode) {
