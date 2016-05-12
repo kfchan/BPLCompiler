@@ -3,6 +3,15 @@ Katherine Chan
 
 Run any of the following scripts in this (BPLCompiler) directory. 
 To run:
-  - the parser: './runParser <file>'
-  - the scanner: './runScanner <file>'
-  - the type checker: './runTypeChecker <file>'
+  - the parser: 		'./runParser <file>'
+  - the scanner: 		'./runScanner <file>'
+  - the type checker: 	'./runTypeChecker <file>'
+  - the code generator: './runCodeGenerator <file>'
+  						'gcc -o <name> <file>.s'
+  						'./<name>'
+
+  	for example: 		'./runCodeGenerator sort.bpl'
+  						'gcc -o sort sort.bpl.s'
+  						'./sort'
+
+Note: code generator doesn't do array bounds checking or read()
