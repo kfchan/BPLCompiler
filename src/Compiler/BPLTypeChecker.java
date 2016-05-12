@@ -378,7 +378,7 @@ public class BPLTypeChecker {
 			return this.TYPE_ADDSTRING;
 		} else if (child.isType("*") && origFactorType.equals(this.TYPE_PTRSTRING)) {
 			return this.TYPE_STRING;
-		} else if (child.isType("*") || child.isType("&")) {
+		} else if (child.isType("&")) {
 			throw new BPLTypeCheckerException("Incorrect pointer usage", f.getLineNumber());
 		}
 		return origFactorType;

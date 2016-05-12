@@ -50,7 +50,6 @@ public class BPLCodeGenerator {
 	}
 
 	private void handleStatementListDepth(BPLNode stmtList, int level, int count) {
-		// System.out.println("statement list depths type : " + stmtList);
 		if (stmtList.isType("<empty>")) {
 			return;
 		}
@@ -60,13 +59,10 @@ public class BPLCodeGenerator {
 	}
 
 	private void handleStatementDepth(BPLNode statementNode, int level, int count) {
-		// System.out.println("statementNode type:  " + statementNode.getType());
-
 		this.handleStatement(statementNode.getChild(0), level, count);
 	}
 
 	private void handleStatement(BPLNode statementChild, int level, int count) {
-		// System.out.println("statementChild type: " + statementChild.getType());
 		if (statementChild.isType("IF_STMT") || statementChild.isType("WHILE_STMT")) {
 			this.handleStatementDepth(statementChild.getChild(1), level, count);
 			if (statementChild.getChildrenSize() > 2) {
@@ -77,8 +73,7 @@ public class BPLCodeGenerator {
 		}
 	}
 
-	private int handleLocalDecDepths(BPLNode localDecNode, int level, int count) {
-		// System.out.println("localdec depths type: " + localDecNode.getType());		
+	private int handleLocalDecDepths(BPLNode localDecNode, int level, int count) {		
 		if (localDecNode.isType("<empty>")) {
 			return count;
 		}
@@ -88,8 +83,7 @@ public class BPLCodeGenerator {
 		varDec.assignDepth(level);
 		int arraySize = this.getPosition(localDecNode.getChild(0));
 		count += arraySize;
-		varDec.assignPosition(count);
-		// System.out.println("localdec " + varDec.getName() + " " + level + " " + count);		
+		varDec.assignPosition(count);	
 
 		return this.handleLocalDecDepths(localDecNode.getChild(1), level, count + 1);
 	}
@@ -109,11 +103,9 @@ public class BPLCodeGenerator {
 		BPLNode decNode = decList.getChild(0);
 		BPLNode decNodeChild = decNode.getChild(0);
 		if (decNodeChild.isType("VAR_DEC")) {
-			// System.out.println("global vardec " + decNodeChild.getName() + " " + level + " " + count);
 			decNodeChild.assignDepth(level);
 			decNodeChild.assignPosition(count);
 		} else {
-			// System.out.println("global fundec " + decNodeChild.getName() + " " + level + " " + count);
 			decNodeChild.assignDepth(level);
 			decNodeChild.assignPosition(count);
 			this.findDepthDeclaration(decNodeChild.getChild(2), level+1, count);
@@ -133,7 +125,6 @@ public class BPLCodeGenerator {
 
 	private void handleParamsList(BPLNode paramsList, int level, int count) {
 		BPLNode paramNode = paramsList.getChild(0);
-		// System.out.println("params " + paramNode.getName() + " " + level + " " + count);
 		paramNode.assignDepth(level);
 		paramNode.assignPosition(count);
 		if (paramsList.getChildrenSize() > 1) {
@@ -166,12 +157,8 @@ public class BPLCodeGenerator {
 	}
 
 	private void genGlobalVar(String name, BPLNode node) {
-		if (node.getChild(0).isType("*")) { // skip because i dunno pointers
-			return;
-		}
 		int spaceAl = 8;
-		// System.out.println(node.getChildrenSize());
-		if (node.getChildrenSize() == 5) { // TODO: why is the size 5..
+		if (node.getChildrenSize() == 5) { 
 			BPLIntegerNode intNode = (BPLIntegerNode) node.getChild(3);
 			spaceAl *= intNode.getInteger();
 		}
@@ -189,16 +176,13 @@ public class BPLCodeGenerator {
 
 	private void generateCode() {
 		if (this.parseTreeHead.getChildrenSize() != 0) {
-			// System.out.println("generateCode");
 			this.genCodeDecList(this.parseTreeHead.getChild(0));
 		}
 	}
 
 	private void genCodeDecList(BPLNode decListNode) {
-		// TODO: only handles functions with no params or local decs
 		BPLNode decNode = decListNode.getChild(0);
 		if (decNode.getChild(0).isType("FUN_DEC")) {
-			// System.out.println("genCodeDecList FUN_DEC");
 			this.genCodeFunDec(decNode.getChild(0));
 		}
 		if (decListNode.getChildrenSize() > 1) {
@@ -223,11 +207,10 @@ public class BPLCodeGenerator {
 	}
 
 	private int genCodeLocalDecs(BPLNode localDecsNode) {
-		// System.out.println(localDecsNode.getType());
 		int space = 0;
 		if (!localDecsNode.isType("<empty>")) {
 			space = this.getSpaceLocalDecs(localDecsNode);
-			this.print("subq $" + space + ", %rsp", "allocate local variables"); // sub $16, %rsp
+			this.print("subq $" + space + ", %rsp", "allocate local variables");
 		}
 		return space;
 	}
@@ -243,7 +226,6 @@ public class BPLCodeGenerator {
 		if (varDecNode.getChildrenSize() == 2) { // int or string
 			rtn = 8;
 		} else if (varDecNode.getChildrenSize() == 3) { // pointer
-			// TODO
 			rtn = 8;
 		} else { // array
 			int size = ((BPLIntegerNode) varDecNode.getChild(3)).getInteger();
@@ -254,7 +236,6 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeStatementList(BPLNode stmtListNode) {
-		// System.out.println("stmtList " + stmtListNode.getType());
 		if (stmtListNode.isType("<empty>")) {
 			return;
 		}
@@ -356,7 +337,6 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeExpression(BPLNode expNode) {
-		// System.out.println("expNode " + expNode.getType());
 		if (expNode.getChild(0).isType("COMP_EXP")) {
 			this.genCodeCompExp(expNode.getChild(0));
 		} else {
@@ -364,8 +344,7 @@ public class BPLCodeGenerator {
 		}
 	}
 
-	private void genCodeCompExp(BPLNode compExpNode) {
-		// System.out.println("compExpNode " + compExpNode.getType());	
+	private void genCodeCompExp(BPLNode compExpNode) {	
 		this.genCodeENode(compExpNode.getChild(0));
 		if (compExpNode.getChildrenSize() == 1) {
 			return;
@@ -404,8 +383,10 @@ public class BPLCodeGenerator {
 		BPLNode var = expNode.getChild(0);
 		BPLNode varDec = var.getDeclaration();
 
-		// System.out.println(var.getType());
 		BPLNode idNode = var.getChild(0); 
+		if (idNode.isType("*")) {
+			idNode = var.getChild(1); 
+		}
 		String id = ((BPLVarNode) idNode).getID();
 
 		this.genCodeExpression(expNode.getChild(2));
@@ -428,8 +409,11 @@ public class BPLCodeGenerator {
 			this.print("movq %rax, %rdx");
 			this.print("pop %rax");
 			this.print("movq %rax, 0(%rdx)", "assignment val to global array " + id);
+		} else if (varDecNode.getChildrenSize() > 2 && varNode.getChildrenSize() > 1) { // pointer
+			this.print("movq "+ id + ", %rdx", "assigning value to global pointer " + id);
+			this.print("movq %rax, 0(%rdx)");
 		} else {
-			this.print("movq %rax, " + id);
+			this.print("movq %rax, " + id, "assigning value to global " + id);
 		}
 	}
 
@@ -445,12 +429,15 @@ public class BPLCodeGenerator {
 			this.print("addq %rdi, %rax");
 			this.print("pop %rdi");
 			this.print("movq %rdi, 0(%rax)", "assign val to param array " + id);
+		} else if (varDecNode.getChildrenSize() > 2 && varNode.getChildrenSize() > 1) { // pointer
+			this.print("movq " + position + "(%rbx), %rdx", "assigning value to pointer " + id);
+            this.print("movq %rax, 0(%rdx)");
 		} else {
 			this.print("movq %rax, " + position + "(%rbx)", "assignment to param " + id);
 		}
 	}
 
-		private void genCodeAssignmentLocals(BPLNode varNode, BPLNode varDecNode, String id) {
+	private void genCodeAssignmentLocals(BPLNode varNode, BPLNode varDecNode, String id) {
 		int position = -8 - 8 * varDecNode.getPosition();
 		if (varDecNode.getChildrenSize() == 5) { // array
 			this.print("push %rax");
@@ -462,13 +449,15 @@ public class BPLCodeGenerator {
 			this.print("addq %rdi, %rax");
 			this.print("pop %rdi");
 			this.print("movq %rdi, 0(%rax)", "assign val to local array " + id);
+		} else if (varDecNode.getChildrenSize() > 2 && varNode.getChildrenSize() > 1) { // pointer
+			this.print("movq " + position + "(%rbx), %rdx", "assigning value to local pointer " + id);
+            this.print("movq %rax, 0(%rdx)");
 		} else {
 			this.print("movq %rax, " + position + "(%rbx)", "assignment to local var " + id);
 		}
 	}
 
 	private void genCodeENode(BPLNode eNode) {
-		// System.out.println("eNode " + eNode.getType());
 		if (eNode.getChildrenSize() == 1) {
 			this.genCodeTNode(eNode.getChild(0));
 			return;
@@ -488,7 +477,6 @@ public class BPLCodeGenerator {
 	}	
 
 	private void genCodeTNode(BPLNode tNode) {
-		// System.out.println("tNode " + tNode.getType());
 		if (tNode.getChildrenSize() == 1) {
 			this.genCodeFNode(tNode.getChild(0));
 			return;
@@ -514,24 +502,59 @@ public class BPLCodeGenerator {
 	}
 
 	private void genCodeFNode(BPLNode fNode) {
-		//  System.out.println("fNode " + fNode.getType());
 		BPLNode fChild = fNode.getChild(0);
 		if (fChild.isType("FACTOR")) {
-			genCodeFactorNode(fNode.getChild(0));
+			this.genCodeFactorNode(fNode.getChild(0));
 		} else if (fChild.isType("-")) {
 			this.genCodeFNode(fNode.getChild(1));
 			this.print("neg %eax");
 		} else if (fChild.isType("*")) {
-			// TODO: test this
-			this.genCodeFNode(fNode.getChild(1));
-			this.print("movl 0(%rax), %rax", "dereference pointer");
+			this.genCodeFactorNode(fNode.getChild(1));
+			this.print("movq 0(%rax), %rax", "dereference pointer");
 		} else {
-			// TODO: dereference 
+			this.genCodeAmpersand(fNode.getChild(1));
+		}
+	}
+
+	private void genCodeAmpersand(BPLNode factorNode) {
+		BPLNode idNode = factorNode.getChild(0);
+		if (!idNode.isType("ID")) {
+			System.err.println("You can only dereference a var or array entry!");
+			System.exit(1);
+		}
+
+		String id = ((BPLVarNode) idNode).getID();
+		BPLNode varDecNode = idNode.getDeclaration();
+
+		if (varDecNode.getDepth() == 0) {
+			if (varDecNode.getChildrenSize() > 3) {
+				this.genCodeExpression(factorNode.getChild(2));
+				this.print("imul $8, %eax");
+				this.print("addq $" + id + ", %rax");
+			} else {
+				this.print("leaq " + id + ", %rax", "getting address of var " + id);
+			}
+		} else {
+			int position = varDecNode.getPosition();
+			if (varDecNode.getDepth() == 1) {
+				position = 16 + 8 * position;
+			} else {
+				position = -8 - 8 * position;
+			}
+			if (varDecNode.getChildrenSize() > 3) { // ampersand of array entry
+				this.print("leaq " + position + "(%rbx), %rdi");
+				this.print("push %rdi");
+				this.genCodeExpression(factorNode.getChild(2));
+				this.print("imul $8, %rax");
+				this.print("pop %rdi");
+				this.print("addq %rdi, %rax");
+			} else { 
+				this.print("leaq " + position + "(%rbx), %rax", "getting address of var " + id);
+			}
 		}
 	}
 
 	private void genCodeFactorNode(BPLNode factorNode) {
-		// System.out.println("factorNode " + factorNode.getType());
 		BPLNode factorChild = factorNode.getChild(0);
 		if (factorChild.isType("EXPRESSION")) {
 			this.genCodeExpression(factorChild);
@@ -568,6 +591,8 @@ public class BPLCodeGenerator {
 			this.print("imul $8, %eax");
 			this.print("addq $" + id + ", %rax");
 			this.print("movq 0(%rax), %rax", "assign element in " + id + " to ac");
+		} else if (varDecNode.getChildrenSize() == 5) {
+			this.print("leaq " + id + ", %rax", "global " + id + " to ac");
 		} else {
 			this.print("movq " + id + ", %rax", "global " + id + " to ac");
 		}
@@ -600,7 +625,7 @@ public class BPLCodeGenerator {
 			this.print("pop %rdi");
 			this.print("addq %rdi, %rax");
 			this.print("movq 0(%rax), %rax", "local array " + id + " entry to ac");
-		} else if (varDecNode.getChildrenSize() == 5) {
+		} else if (varDecNode.getChildrenSize() == 5) { // pointer
 			this.print("leaq " + position + "(%rbx), %rax");
 		} else {
 			this.print("movq " + position + "(%rbx), %rax", "local " + id + " to ac");
